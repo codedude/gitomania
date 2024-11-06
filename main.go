@@ -1,8 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"gitomania/internal/file"
+	"log/slog"
+)
 
 func main() {
-	var _ = IsTrue(true)
-	fmt.Println("Hello")
+	var _ = file.IsTrue(true)
+	slog.Info("Here")
 }
