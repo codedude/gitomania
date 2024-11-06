@@ -1,0 +1,74 @@
+{
+    // general
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": false,
+    "editor.formatOnType": false,
+    "editor.codeActionsOnSave": [],
+    "editor.rulers": [
+        80,
+        100
+    ],
+    "editor.minimap.enabled": true,
+    "editor.minimap.maxColumn": 80,
+    "editor.minimap.scale": 1,
+    "editor.showUnused": true,
+    "git.enabled": true,
+    "files.eol": "\n",
+    "files.encoding": "utf8",
+    "files.enableTrash": true,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.autoSave": "off",
+    "diffEditor.renderSideBySide": true,
+    "editor.codeLens": false,
+    "editor.wordWrap": "off",
+    // go specific settings
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "golang.go",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "always",
+            "source.fixAll": "always",
+        }
+    },
+    // make sure the go language server is enabled
+    "go.useLanguageServer": true,
+    // configure gopls, the go language server
+    "gopls": {
+        "ui.semanticTokens": true,
+        "ui.completion.usePlaceholders": true
+    },
+    "go.diagnostic.vulncheck": "Imports",
+    // configure the go formatting tool to be goimports
+    "go.formatTool": "goimports",
+    "go.formatFlags": [
+        "-local",
+        "github.com/takt-corp/"
+    ],
+    // change the linting tool to be golangci
+    "go.lintTool": "golangci-lint",
+    "go.lintOnSave": "workspace",
+    "go.lintFlags": [
+        "--fast"
+    ],
+    // configure the tags we want to add by default
+    "go.addTags": {
+        "tags": "json,validate",
+        "options": "json=omitempty,validate=omitempty",
+        "promptForTags": false,
+        "transform": "snakecase",
+        "template": ""
+    },
+    // dont run code coverage on save
+    "go.coverOnSave": false,
+    // excludes
+    "files.watcherExclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+    },
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+    },
+}
