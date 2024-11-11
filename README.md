@@ -1,2 +1,3 @@
-# gitomania
+# tig
+
 Git clone in Go
