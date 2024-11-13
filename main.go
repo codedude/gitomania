@@ -8,10 +8,15 @@ package main
 	- rm: untrack file
 
 	Steps 2 (commit):
-	-
+	- Add modified/created files to the commit with "stage"
+	- Remove staged files with "unstaged"
+	- Commit changes with "commit"
+	- List commit
 
-	Steps 3 (revert):
-	-
+	Steps 3 (revert, head):
+	- Revert to a specific commit
+	- Delete a commit
+	- Reset head
 
 */
 
@@ -53,9 +58,9 @@ func run(args []string) int {
 
 	var arg string = args[1]
 	if arg == "init" {
-		err = loader.CreateTigDir(&tigCtx)
+		err = loader.CreateTig(&tigCtx)
 	} else if arg == "clear" {
-		err = loader.ClearSystem(&tigCtx)
+		err = loader.DeleteTig(&tigCtx)
 	} else if arg == "status" {
 		err = status.GetStatus(&tigCtx)
 	} else if arg == "add" {

@@ -17,8 +17,8 @@ import (
 	"tig/internal/context"
 )
 
-// ClearSystem removes tig root folder '.tig', and all subsequent files
-func ClearSystem(ctx *context.TigCtx) error {
+// DeleteTig removes tig root folder '.tig', and all subsequent files
+func DeleteTig(ctx *context.TigCtx) error {
 	var err error
 
 	if err = os.RemoveAll(ctx.RootPath); err != nil {
@@ -37,8 +37,8 @@ func InitSystem(ctx *context.TigCtx) error {
 	return nil
 }
 
-// CreateTigDir create directories and files needed by tig
-func CreateTigDir(ctx *context.TigCtx) error {
+// CreateTig create directories and files needed by tig
+func CreateTig(ctx *context.TigCtx) error {
 	var err error
 
 	if err = os.Mkdir(ctx.RootPath, 0o755); err != nil {
