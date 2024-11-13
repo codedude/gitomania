@@ -1,4 +1,4 @@
-// Package context contains types and constants of the tig system
+// Package context contains tig system types and constants
 package context
 
 const TigMaxFileRead = 1024 * 1024 * 32
