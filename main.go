@@ -25,16 +25,20 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"tig/internal/commit"
 	"tig/internal/context"
 	"tig/internal/loader"
 	"tig/internal/status"
+	"tig/internal/track"
 )
 
-func main() { os.Exit(run(os.Args)) }
+func main() {
+	fmt.Println("### Start")
+	os.Exit(run(os.Args))
+	fmt.Println("### Done")
+}
 
 func run(args []string) int {
-	fmt.Println("### Start")
-
 	var (
 		err    error
 		tigCtx context.TigCtx
@@ -64,9 +68,11 @@ func run(args []string) int {
 	} else if arg == "status" {
 		err = status.GetStatus(&tigCtx)
 	} else if arg == "add" {
-		err = status.AddFileTrack(tigCtx, args[2:])
+		err = track.AddFileTrack(tigCtx, args[2:])
 	} else if arg == "rm" {
-		err = status.RmFileTrack(tigCtx, args[2:])
+		err = track.RmFileTrack(tigCtx, args[2:])
+	} else if arg == "commit" {
+		err = commit.Commit(tigCtx)
 	} else {
 		err = errors.New("Unknown command")
 	}
@@ -75,6 +81,5 @@ func run(args []string) int {
 		return 1
 	}
 
-	fmt.Println("### Done")
 	return 0
 }

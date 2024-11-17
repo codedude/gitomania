@@ -1,7 +1,9 @@
-package file
+package tgfile
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"io"
 	"os"
@@ -10,15 +12,12 @@ import (
 	"strings"
 )
 
-// ReadFileLimitBytes is the same as ReadFile, but read no more then 'limit' bytes
-// cf : https://cs.opensource.google/go/go/+/refs/tags/go1.23.3:src/os/file.go;l=783
-func ReadFileLimitBytes(filePath string, limit int) ([]byte, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
+// In bytes, last number = Mo
+const MAX_FILE_SIZE = 1024 * 1024 * 64
 
+// ReadFdLimitBytes is the same as ReadFile, but read no more then 'limit' bytes
+// cf : https://cs.opensource.google/go/go/+/refs/tags/go1.23.3:src/os/file.go;l=783
+func ReadFdLimitBytes(f *os.File, limit int) ([]byte, error) {
 	var size int
 	if info, err := f.Stat(); err == nil {
 		size64 := info.Size()
@@ -27,14 +26,12 @@ func ReadFileLimitBytes(filePath string, limit int) ([]byte, error) {
 		}
 	}
 	size++ // one byte for final read at EOF
-
 	if size > limit {
 		return nil, errors.New("Can't read file bigger than " + strconv.Itoa(limit) + " bytes")
 	}
 	if size < 512 {
 		size = 512
 	}
-
 	data := make([]byte, 0, size)
 	for {
 		n, err := f.Read(data[len(data):cap(data)])
@@ -45,7 +42,6 @@ func ReadFileLimitBytes(filePath string, limit int) ([]byte, error) {
 			}
 			return data, err
 		}
-
 		if len(data) >= cap(data) {
 			d := append(data[:cap(data)], 0)
 			data = d[:len(data)]
@@ -53,8 +49,8 @@ func ReadFileLimitBytes(filePath string, limit int) ([]byte, error) {
 	}
 }
 
-func ReadFileLimitLines(filePath string, limit int) ([]string, error) {
-	fileBytes, err := ReadFileLimitBytes(filePath, limit)
+func ReadFdLimitLines(f *os.File, limit int) ([]string, error) {
+	fileBytes, err := ReadFdLimitBytes(f, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +61,24 @@ func ReadFileLimitLines(filePath string, limit int) ([]string, error) {
 		}
 	}
 	return bufStrLines, nil
+}
+
+func ReadFileLimitBytes(filePath string, limit int) ([]byte, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return ReadFdLimitBytes(f, limit)
+}
+
+func ReadFileLimitLines(filePath string, limit int) ([]string, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return ReadFdLimitLines(f, limit)
 }
 
 func WriteStrings(filename string, data []string) error {
@@ -139,4 +153,18 @@ func GetDirTreeFileList(rootDirPath string) ([]string, error) {
 		}
 	}
 	return fileList, nil
+}
+
+func HashFile(filepath string) (string, error) {
+	f, err := os.Open(filepath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha1.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

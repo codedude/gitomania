@@ -3,6 +3,7 @@ package loader
 /*
 - .tig
 	- .config: file metadata about author or user options
+	- .track: file tracked
 	- .tree: file containing data about the file system
 	- .blobs: directory of files snapshots, filename = content hash
 		- 09ba49bc09b40ab4c: a snapshot of a file
@@ -16,18 +17,6 @@ import (
 	"path"
 	"tig/internal/context"
 )
-
-// DeleteTig removes tig root folder '.tig', and all subsequent files
-func DeleteTig(ctx *context.TigCtx) error {
-	var err error
-
-	if err = os.RemoveAll(ctx.RootPath); err != nil {
-		return err
-	}
-	*ctx = context.TigCtx{}
-
-	return nil
-}
 
 // InitSysten read values from system or global tig config
 // Nothing is read inside .tig directory
@@ -65,11 +54,23 @@ func CreateTig(ctx *context.TigCtx) error {
 		return err
 	}
 
-	fileTree, err := os.Create(path.Join(ctx.RootPath, context.TigTreeFileName))
+	fileTree, err := os.Create(path.Join(ctx.RootPath, context.TigIndexFileName))
 	defer fileTree.Close()
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// DeleteTig removes tig root folder '.tig', and all subsequent files
+func DeleteTig(ctx *context.TigCtx) error {
+	var err error
+
+	if err = os.RemoveAll(ctx.RootPath); err != nil {
+		return err
+	}
+	*ctx = context.TigCtx{}
 
 	return nil
 }
