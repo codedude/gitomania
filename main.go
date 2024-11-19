@@ -8,9 +8,9 @@ package main
 	- rm: untrack file
 
 	Steps 2 (commit):
-	- Add modified/created files to the commit with "stage"
-	- Remove staged files with "unstaged"
-	- Commit changes with "commit"
+	- Add modified/created files to the commit
+	- Remove staged files
+	- Commit changes
 	- List commit
 
 	Steps 3 (revert, head):
@@ -41,7 +41,7 @@ func main() {
 func run(args []string) int {
 	var (
 		err    error
-		tigCtx context.TigCtx
+		tigCtx = context.TigCtx{AuthorName: "codedude"}
 	)
 
 	if len(args) < 2 {

@@ -1,5 +1,20 @@
 package commit
 
+/*
+How to store commit:
+- Line oriented, chronological order (first to last)
+- Header followed by a list of snapshot, representing the global state
+
+NB: author and msg are base64 encoded
+
+###FILE START
+#id;parentId;date;author;msg;ab42cd64ef01;a98bd8be9ae8;da8db98b4a09
+#id;parentId;author;date;msg;ab42cd64ef01;a0e9720b207e;da8db98b4a09
+#id;parentId;author;date;msg;ab42cd64ef01;a0e9720b207e
+###FILE END
+
+*/
+
 import (
 	"os"
 	"path"

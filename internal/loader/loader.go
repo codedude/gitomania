@@ -16,6 +16,7 @@ import (
 	"os"
 	"path"
 	"tig/internal/context"
+	"tig/internal/tgfile"
 )
 
 // InitSysten read values from system or global tig config
@@ -30,7 +31,7 @@ func InitSystem(ctx *context.TigCtx) error {
 func CreateTig(ctx *context.TigCtx) error {
 	var err error
 
-	if err = os.Mkdir(ctx.RootPath, 0o755); err != nil {
+	if err = os.Mkdir(ctx.RootPath, tgfile.FILE_PERM); err != nil {
 		if os.IsExist(err) {
 			fmt.Println("tig already initialized")
 			return nil
@@ -38,7 +39,7 @@ func CreateTig(ctx *context.TigCtx) error {
 		return err
 	}
 
-	if err = os.Mkdir(path.Join(ctx.RootPath, context.TigBlobsDirName), 0o775); err != nil {
+	if err = os.Mkdir(path.Join(ctx.RootPath, context.TigBlobsDirName), tgfile.FILE_PERM); err != nil {
 		return err
 	}
 

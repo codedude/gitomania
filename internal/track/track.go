@@ -1,5 +1,18 @@
 package track
 
+/*
+How to store tracked files:
+- Line-oriented, orderless
+- A line equal to a tracked file -> "hash,path"
+- The hash from latest commit is cached, so we can check modification
+
+###FILE START
+ab42cd64ef01;main.go
+a0e9720b207e;internal/commit/commit.go
+###FILE END
+
+*/
+
 import (
 	"bytes"
 	"errors"

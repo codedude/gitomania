@@ -14,6 +14,7 @@ import (
 
 // In bytes, last number = Mo
 const MAX_FILE_SIZE = 1024 * 1024 * 64
+const FILE_PERM = 0o764
 
 // ReadFdLimitBytes is the same as ReadFile, but read no more then 'limit' bytes
 // cf : https://cs.opensource.google/go/go/+/refs/tags/go1.23.3:src/os/file.go;l=783
@@ -88,7 +89,13 @@ func WriteStrings(filename string, data []string) error {
 		return err
 	}
 	defer file.Close()
-	_, err = file.WriteString(strings.Join(data, "\n"))
+
+	var builder strings.Builder
+	for i := 0; i < len(data); i++ {
+		builder.WriteString(data[i])
+		builder.WriteString("\n")
+	}
+	_, err = file.WriteString(builder.String())
 	if err != nil {
 		return err
 	}
@@ -155,6 +162,12 @@ func GetDirTreeFileList(rootDirPath string) ([]string, error) {
 	return fileList, nil
 }
 
+func HashBytes(data []byte) string {
+	h := sha1.New()
+	h.Write(data)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 func HashFile(filepath string) (string, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
@@ -167,4 +180,20 @@ func HashFile(filepath string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func CopyFile(fileSrc, fileDest string) error {
+	fSrc, err := os.Open(fileSrc)
+	if err != nil {
+		return err
+	}
+	fDest, err := os.Create(fileDest)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(fDest, fSrc)
+	if err != nil {
+		return err
+	}
+	return nil
 }
