@@ -53,6 +53,9 @@ type TigFS struct {
 	ObjectsPath string
 }
 
+// New initialise a new/existing FS in directory rootDir.
+// Subsequent call of New wont erase local files, but the in memory representation
+// of the FS can diverge, so don't call New multiple times.
 func New(rootDir string) (*TigFS, error) {
 	cleanRootDir := path.Clean(rootDir)
 	fs := &TigFS{
@@ -73,6 +76,8 @@ func New(rootDir string) (*TigFS, error) {
 	return fs, nil
 }
 
+// Load read the index file to popuplate the FS.
+// Load is idempotent.
 func (fs TigFS) Load() error {
 	lines, err := tgfile.ReadFileLimitLines(fs.IndexPath, tgfile.MAX_FILE_SIZE)
 	if err != nil {
@@ -109,6 +114,49 @@ func (fs TigFS) Load() error {
 	return nil
 }
 
+// Save write the FS to the index file.
+// Any Add/Delete action on File or Snapshot must end with a TigFile.Save() call
+func (fs *TigFS) save() error {
+	var builder strings.Builder
+	for _, v := range fs.Files {
+		builder.WriteByte('#')
+		builder.WriteString(v.Path)
+		builder.WriteByte('\n')
+		ptr := v.Head
+		for ; ptr != nil; ptr = ptr.Previous {
+			builder.WriteString(ptr.Hash)
+			builder.WriteByte(';')
+			builder.WriteString(ptr.Path)
+			builder.WriteByte('\n')
+		}
+	}
+	err := tgfile.WriteString(fs.IndexPath, builder.String())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteAll delete all data and files of the FS.
+func (fs *TigFS) DeleteAll() error {
+	if err := os.RemoveAll(fs.ObjectsPath); err != nil {
+		return err
+	}
+	f, err := os.Open(fs.IndexPath)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	if err := os.Mkdir(fs.ObjectsPath, tgfile.FILE_PERM); err != nil {
+		if !os.IsExist(err) {
+			return err
+		}
+	}
+	fs.Files = make(TigFileMap, len(fs.Files)+1)
+	return nil
+}
+
+// Add add a file to the FS. It also create a snapshot of the file in the FS objects directory
 func (fs *TigFS) Add(filepath string) error {
 	cleanPath := path.Clean(filepath)
 	if _, ok := fs.Files[cleanPath]; ok {
@@ -135,7 +183,7 @@ func (fs *TigFS) Add(filepath string) error {
 		}
 		fs.Files[cleanPath] = newTigFile
 	}
-	return nil
+	return fs.save()
 }
 
 func (tgFile *TigFile) Add() error {
