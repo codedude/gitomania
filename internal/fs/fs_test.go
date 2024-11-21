@@ -8,8 +8,8 @@ import (
 	"tig/internal/tgfile"
 )
 
-// GenerateFakeFs generate a known FS, no files are written
-func GenerateFakeFs(t *testing.T, fileList []string) (*TigFS, string) {
+// generateFakeFs generate a known FS, no files are written
+func generateFakeFs(t *testing.T, fileList []string) (*TigFS, string) {
 	tmpDirPath := t.TempDir()
 	fileContent := []byte("Hello world! xxx")
 	newFs, err := New(tmpDirPath)
@@ -38,16 +38,19 @@ func GenerateFakeFs(t *testing.T, fileList []string) (*TigFS, string) {
 	return newFs, tmpDirPath
 }
 
+var fakeFileListMulti = []string{
+	"file1.py",
+	"a/file2.c",
+	"a/file3.zig",
+	"b/file4.go",
+	"c/d/file5.gleam",
+	"a/c/d/file2.c",
+}
+
 func TestFSLoad(t *testing.T) {
-	fs_generated, path := GenerateFakeFs(t, []string{
-		"file1.py",
-		"a/file2.c",
-		"a/file3.zig",
-		"b/file4.go",
-		"c/d/file5.gleam",
-		"a/c/d/file2.c",
-	})
-	fs_to_test, err := New(path)
+	fs_generated, fs_path := generateFakeFs(t, fakeFileListMulti)
+
+	fs_to_test, err := New(fs_path)
 	if err != nil {
 		t.Fatalf("Error New fs_to_test: %s", err)
 	}
@@ -95,11 +98,11 @@ func TestFSLoad(t *testing.T) {
 
 func TestFSAdd(t *testing.T) {
 	tmpDirPath := t.TempDir()
+	// We can skip fs.Load() since it's an empty FS for now
 	fs_to_test, err := New(tmpDirPath)
 	if err != nil {
 		t.Fatalf("Error New fs_to_test: %s", err)
 	}
-	lenFSBefore := len(fs_to_test.Files)
 	fileToAdd := "hello.go"
 	fullFilePath := path.Join(tmpDirPath, fileToAdd)
 	if err := tgfile.WriteString(fullFilePath, "Hello world"); err != nil {
@@ -108,18 +111,20 @@ func TestFSAdd(t *testing.T) {
 	if err := fs_to_test.Add(fullFilePath); err != nil {
 		t.Fatalf("Error AddFile: %s", err)
 	}
-	if lenFSBefore != len(fs_to_test.Files) {
-		t.Fatalf("FS must be of size 1, not 0")
+	if len(fs_to_test.Files) != 1 {
+		t.Fatalf("FS must be of size 1, not %d (1)", len(fs_to_test.Files))
 	}
 
+	// Reset FS
 	for k := range fs_to_test.Files {
 		delete(fs_to_test.Files, k)
 	}
+	// Now Load should show the previous added file
 	if err := fs_to_test.Load(); err != nil {
 		t.Fatalf("Error Load: %s", err)
 	}
-	if lenFSBefore != len(fs_to_test.Files) {
-		t.Fatalf("FS must be of size 1, not 0 (2)")
+	if len(fs_to_test.Files) != 1 {
+		t.Fatalf("FS must be of size 1, not %d (2)", len(fs_to_test.Files))
 	}
 
 	v, ok := fs_to_test.Files[fullFilePath]
