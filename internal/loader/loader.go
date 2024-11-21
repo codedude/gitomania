@@ -39,10 +39,6 @@ func CreateTig(ctx *context.TigCtx) error {
 		return err
 	}
 
-	if err = os.Mkdir(path.Join(ctx.RootPath, context.TigBlobsDirName), tgfile.FILE_PERM); err != nil {
-		return err
-	}
-
 	fileConfig, err := os.Create(path.Join(ctx.RootPath, context.TigConfigFileName))
 	defer fileConfig.Close()
 	if err != nil {
@@ -51,12 +47,6 @@ func CreateTig(ctx *context.TigCtx) error {
 
 	fileTrack, err := os.Create(path.Join(ctx.RootPath, context.TigTrackFileName))
 	defer fileTrack.Close()
-	if err != nil {
-		return err
-	}
-
-	fileTree, err := os.Create(path.Join(ctx.RootPath, context.TigIndexFileName))
-	defer fileTree.Close()
 	if err != nil {
 		return err
 	}
