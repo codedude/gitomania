@@ -27,6 +27,7 @@ import (
 	"os"
 	"tig/internal/commit"
 	"tig/internal/context"
+	"tig/internal/fs"
 	"tig/internal/loader"
 	"tig/internal/status"
 	"tig/internal/track"
@@ -57,6 +58,17 @@ func run(args []string) int {
 	err = loader.InitSystem(&tigCtx)
 	if err != nil {
 		fmt.Println("Error during tig initialization: ", err)
+		return 1
+	}
+
+	tigCtx.FS, err = fs.New(tigCtx.RootPath)
+	if err != nil {
+		fmt.Println("Error during fs initialization: ", err)
+		return 1
+	}
+	err = tigCtx.FS.Load()
+	if err != nil {
+		fmt.Println("Error during fs loading: ", err)
 		return 1
 	}
 
