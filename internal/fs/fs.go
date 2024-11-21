@@ -41,6 +41,7 @@ type TigFileSnapshot struct {
 }
 
 type TigFile struct {
+	FS   *TigFS           // FS link
 	Path string           // Path of the file in the client project
 	Head *TigFileSnapshot // Never nil
 }
@@ -163,29 +164,34 @@ func (fs *TigFS) Add(filepath string) error {
 		// Will be done later, since we keep track of all file history, even if not track by tig
 		return errors.New("FS.ADD(): File " + cleanPath + " already exists in FS")
 	} else {
-		hash, err := tgfile.HashFile(cleanPath)
+		newTigFile := &TigFile{FS: fs, Path: cleanPath, Head: nil}
+		err := newTigFile.Add()
 		if err != nil {
-			return fmt.Errorf("Add getting hash: %w", err)
-		}
-		newTigFile := &TigFile{Path: cleanPath, Head: nil}
-		newFileSnap := &TigFileSnapshot{
-			Hash:     hash,
-			Path:     cleanPath,
-			File:     newTigFile,
-			Previous: nil,
-		}
-		newTigFile.Head = newFileSnap
-
-		newFileSnapPath := path.Join(fs.ObjectsPath, hash)
-		err = tgfile.CopyFile(cleanPath, newFileSnapPath)
-		if err != nil {
-			return fmt.Errorf("Add create copy: %w", err)
+			return fmt.Errorf("Add adding snapshot: %w", err)
 		}
 		fs.Files[cleanPath] = newTigFile
 	}
 	return fs.save()
 }
 
+// Add add a snapshot to a [TigFile]
 func (tgFile *TigFile) Add() error {
+	hash, err := tgfile.HashFile(tgFile.Path)
+	if err != nil {
+		return fmt.Errorf("Add getting hash: %w", err)
+	}
+	newFileSnap := &TigFileSnapshot{
+		Hash:     hash,
+		Path:     tgFile.Path,
+		File:     tgFile,
+		Previous: tgFile.Head,
+	}
+	err = tgfile.CopyFile(tgFile.Path, path.Join(tgFile.FS.ObjectsPath, hash))
+	if err != nil {
+		return fmt.Errorf("Add create copy: %w", err)
+	}
+	// Last so GC can clean if any error
+	tgFile.Head = newFileSnap
+
 	return nil
 }
