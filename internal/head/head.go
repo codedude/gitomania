@@ -1,7 +1,7 @@
 package head
 
-import "tig/internal/commit"
+import "tig/internal/tgcommit"
 
 type TigHead struct {
-	Head *commit.TigCommit // Which version we're on
+	Head *tgcommit.TigCommit // Which version we're on
 }

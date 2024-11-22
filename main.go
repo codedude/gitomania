@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"tig/internal/commit"
 	"tig/internal/context"
 	"tig/internal/fs"
 	"tig/internal/loader"
@@ -34,9 +33,10 @@ import (
 )
 
 func main() {
-	fmt.Println("### Start")
-	os.Exit(run(os.Args))
-	fmt.Println("### Done")
+	fmt.Println("### Start ###")
+	ret := run(os.Args)
+	fmt.Println("### Done ###")
+	os.Exit(ret)
 }
 
 func run(args []string) int {
@@ -61,6 +61,25 @@ func run(args []string) int {
 		return 1
 	}
 
+	var arg string = args[1]
+
+	// Action that dont need FS
+	if arg == "init" {
+		err = loader.CreateTig(&tigCtx)
+		if err != nil {
+			fmt.Println("Error in command ", arg, ": ", err)
+			return 1
+		}
+		return 0
+	} else if arg == "clear" {
+		err = loader.DeleteTig(&tigCtx)
+		if err != nil {
+			fmt.Println("Error in command ", arg, ": ", err)
+			return 1
+		}
+		return 0
+	}
+
 	tigCtx.FS, err = fs.New(tigCtx.RootPath)
 	if err != nil {
 		fmt.Println("Error during fs initialization: ", err)
@@ -72,19 +91,15 @@ func run(args []string) int {
 		return 1
 	}
 
-	var arg string = args[1]
-	if arg == "init" {
-		err = loader.CreateTig(&tigCtx)
-	} else if arg == "clear" {
-		err = loader.DeleteTig(&tigCtx)
-	} else if arg == "status" {
+	// Action that need FS
+	if arg == "status" {
 		err = status.GetStatus(&tigCtx)
 	} else if arg == "add" {
 		err = track.AddFileTrack(tigCtx, args[2:])
 	} else if arg == "rm" {
 		err = track.RmFileTrack(tigCtx, args[2:])
 	} else if arg == "commit" {
-		err = commit.Commit(tigCtx)
+		// err = tgcommit.Commit(tigCtx)
 	} else {
 		err = errors.New("Unknown command")
 	}

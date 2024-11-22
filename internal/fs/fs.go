@@ -22,7 +22,7 @@ How to store file snapshot history:
 ab42cd64ef01;ab42cd64ef01
 a98bd8be9ae8;a98bd8be9ae8
 da8db98b4a09;da8db98b4a09
-#internal/commit/commit.go
+#internal/commit/tgcommit.go
 a0e9720b207e;a0e9720b207e
 ###FILE END
 
@@ -157,28 +157,48 @@ func (fs *TigFS) DeleteAll() error {
 	return nil
 }
 
+// Get return a File in the FS
+func (fs *TigFS) Get(filepath string) (*TigFile, bool) {
+	file, ok := fs.Files[path.Clean(filepath)]
+	return file, ok
+}
+
+// FileIsModified check if the file filepath has been modified/added since the last snapshot
+func (fs *TigFS) HasNewVersion(filepath string) (bool, error) {
+	file, ok := fs.Get(filepath)
+	if !ok {
+		return true, nil
+	}
+	newHash, err := tgfile.HashFile(filepath)
+	if err != nil {
+		return false, err
+	}
+	return newHash != file.Head.Hash, nil
+}
+
 // Add add a file to the FS. It also create a snapshot of the file in the FS objects directory
-func (fs *TigFS) Add(filepath string) error {
+func (fs *TigFS) Add(filepath string) (*TigFile, error) {
 	cleanPath := path.Clean(filepath)
+	var newTigFile *TigFile
 	if _, ok := fs.Files[cleanPath]; ok {
 		// Will be done later, since we keep track of all file history, even if not track by tig
-		return errors.New("FS.ADD(): File " + cleanPath + " already exists in FS")
+		return nil, errors.New("FS.ADD(): File " + cleanPath + " already exists in FS")
 	} else {
-		newTigFile := &TigFile{FS: fs, Path: cleanPath, Head: nil}
-		err := newTigFile.Add()
+		newTigFile = &TigFile{FS: fs, Path: cleanPath, Head: nil}
+		_, err := newTigFile.Add()
 		if err != nil {
-			return fmt.Errorf("Add adding snapshot: %w", err)
+			return nil, fmt.Errorf("Add adding snapshot: %w", err)
 		}
 		fs.Files[cleanPath] = newTigFile
 	}
-	return fs.save()
+	return newTigFile, fs.save()
 }
 
 // Add add a snapshot to a [TigFile]
-func (tgFile *TigFile) Add() error {
+func (tgFile *TigFile) Add() (*TigFileSnapshot, error) {
 	hash, err := tgfile.HashFile(tgFile.Path)
 	if err != nil {
-		return fmt.Errorf("Add getting hash: %w", err)
+		return nil, fmt.Errorf("Add getting hash: %w", err)
 	}
 	newFileSnap := &TigFileSnapshot{
 		Hash:     hash,
@@ -188,10 +208,20 @@ func (tgFile *TigFile) Add() error {
 	}
 	err = tgfile.CopyFile(tgFile.Path, path.Join(tgFile.FS.ObjectsPath, hash))
 	if err != nil {
-		return fmt.Errorf("Add create copy: %w", err)
+		return nil, fmt.Errorf("Add create copy: %w", err)
 	}
 	// Last so GC can clean if any error
 	tgFile.Head = newFileSnap
 
+	return newFileSnap, nil
+}
+
+// Search search for a specifi snapshot
+func (tgFile *TigFile) Search(hash string) *TigFileSnapshot {
+	for ptr := tgFile.Head; ptr != nil; ptr = ptr.Previous {
+		if ptr.Hash == hash {
+			return ptr
+		}
+	}
 	return nil
 }

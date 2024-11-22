@@ -108,7 +108,7 @@ func TestFSAdd(t *testing.T) {
 	if err := tgfile.WriteString(fullFilePath, "Hello world"); err != nil {
 		t.Fatalf("Error file WriteString: %s", err)
 	}
-	if err := fs_to_test.Add(fullFilePath); err != nil {
+	if _, err = fs_to_test.Add(fullFilePath); err != nil {
 		t.Fatalf("Error AddFile: %s", err)
 	}
 	if len(fs_to_test.Files) != 1 {
