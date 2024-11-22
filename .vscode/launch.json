@@ -6,12 +6,15 @@
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}",
+      "program": "main.go",
       "cwd": "${workspaceFolder}",
       "args": [
-        ""
+        "add",
+        "main.go"
       ],
-      "envFile": "${workspaceFolder}/.env"
+      // "logOutput": "dap",
+      // "showLog": true,
+      // "envFile": "${workspaceFolder}/.env"
     },
     {
       "name": "Test",
@@ -21,7 +24,7 @@
       "program": "${workspaceFolder}/internal/file",
       "cwd": "${workspaceFolder}",
       "args": [
-        "./..."
+        "./... -v"
       ],
       "envFile": "${workspaceFolder}/.env"
     }
