@@ -78,6 +78,10 @@ func run(args []string) int {
 			return 1
 		}
 		return 0
+	} else if arg == "reset" {
+		loader.DeleteTig(&tigCtx)
+		loader.CreateTig(&tigCtx)
+		return 0
 	}
 
 	tigCtx.FS, err = fs.New(tigCtx.RootPath)

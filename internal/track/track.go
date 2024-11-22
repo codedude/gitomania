@@ -71,7 +71,7 @@ func GetFilesToProcessTrack(ctx context.TigCtx, filesToAdd []string, mode string
 					filesAll[file] = true
 				}
 				// Commit in both case, only if file has changed
-				fileIsModified, err := ctx.FS.HasNewVersion(file)
+				fileIsModified, err := ctx.FS.HasChanged(file)
 				if err != nil {
 					return err
 				}
@@ -86,9 +86,11 @@ func GetFilesToProcessTrack(ctx context.TigCtx, filesToAdd []string, mode string
 			if _, ok := filesAll[file]; !ok {
 				return errors.New("tig don't know about " + file)
 			}
-			// if added/same -> untrack (delete)
-			// if modified/deleted -> tracked (add to file)
-			delete(filesAll, file)
+			if commit.HasFile(file) {
+				commit.Remove(file)
+			} else {
+				delete(filesAll, file)
+			}
 		}
 	}
 

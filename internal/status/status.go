@@ -49,7 +49,7 @@ func GetStatus(ctx *context.TigCtx) error {
 	for k, v := range trackFiles {
 		var fileState string
 		if v {
-			hasChanged, err := ctx.FS.HasNewVersion(k)
+			hasChanged, err := ctx.FS.HasChanged(k)
 			if err != nil {
 				return err
 			}

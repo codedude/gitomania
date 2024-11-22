@@ -99,13 +99,13 @@ func GetOrCreateCommit(ctx context.TigCtx) (*TigCommit, error) {
 }
 
 func (c *TigCommit) Save(ctx context.TigCtx) error {
-	var builder strings.Builder
+	var fileLines []string
 	for _, change := range c.Changes {
-		builder.WriteString(fmt.Sprintf("%d;%s;%s\n",
+		fileLines = append(fileLines, fmt.Sprintf("%d;%s;%s",
 			change.Action, change.FileSnapshot.File.Path, change.FileSnapshot.Hash))
 	}
-	err := tgfile.WriteString(
-		path.Join(ctx.RootPath, context.TigCommitFileName), builder.String())
+	err := tgfile.WriteStrings(
+		path.Join(ctx.RootPath, context.TigCommitFileName), fileLines)
 	if err != nil {
 		return fmt.Errorf("Cannot save commit: %w", err)
 	}
@@ -134,4 +134,25 @@ func (c *TigCommit) Stage(ctx context.TigCtx, filepath string) error {
 	}
 	c.Changes = append(c.Changes, TigChange{Action: action, FileSnapshot: snapshot})
 	return nil
+}
+
+func (c *TigCommit) Remove(filepath string) {
+	var i int
+	for k, v := range c.Changes {
+		if v.FileSnapshot.File.Path == filepath {
+			i = k
+			break
+		}
+	}
+	c.Changes[i] = c.Changes[len(c.Changes)-1]
+	c.Changes = c.Changes[:len(c.Changes)-1]
+}
+
+func (c *TigCommit) HasFile(filepath string) bool {
+	for _, v := range c.Changes {
+		if v.FileSnapshot.File.Path == filepath {
+			return true
+		}
+	}
+	return false
 }

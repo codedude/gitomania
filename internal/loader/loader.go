@@ -61,7 +61,6 @@ func DeleteTig(ctx *context.TigCtx) error {
 	if err = os.RemoveAll(ctx.RootPath); err != nil {
 		return err
 	}
-	*ctx = context.TigCtx{}
 
 	return nil
 }

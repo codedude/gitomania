@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"tig/internal/tgfile"
 )
@@ -79,7 +80,7 @@ func New(rootDir string) (*TigFS, error) {
 
 // Load read the index file to popuplate the FS.
 // Load is idempotent.
-func (fs TigFS) Load() error {
+func (fs *TigFS) Load() error {
 	lines, err := tgfile.ReadFileLimitLines(fs.IndexPath, tgfile.MAX_FILE_SIZE)
 	if err != nil {
 		return err
@@ -94,7 +95,7 @@ func (fs TigFS) Load() error {
 				return errors.New("Bad formatting in file declaration")
 			}
 			currentFile = line[1:]
-			fs.Files[currentFile] = &TigFile{Path: currentFile, Head: nil}
+			fs.Files[currentFile] = &TigFile{Path: currentFile, FS: fs, Head: nil}
 		} else {
 			if len(currentFile) == 0 {
 				return errors.New("File must begin with file declaration")
@@ -103,8 +104,8 @@ func (fs TigFS) Load() error {
 			if len(data) != 2 {
 				return errors.New("Bad hash;path formatting in snapshot list")
 			}
-			tigFile := fs.Files[currentFile]
-			if tigFile == nil {
+			tigFile, ok := fs.Files[currentFile]
+			if !ok {
 				return errors.New("File snapshot list must be preceeded by file declaration")
 			}
 			tigFile.Head = &TigFileSnapshot{
@@ -118,20 +119,18 @@ func (fs TigFS) Load() error {
 // Save write the FS to the index file.
 // Any Add/Delete action on File or Snapshot must end with a TigFile.Save() call
 func (fs *TigFS) save() error {
-	var builder strings.Builder
+	var fileLines []string
 	for _, v := range fs.Files {
-		builder.WriteByte('#')
-		builder.WriteString(v.Path)
-		builder.WriteByte('\n')
+		fileLines = append(fileLines, fmt.Sprintf("#%s", v.Path))
 		ptr := v.Head
+		var snapLines []string
 		for ; ptr != nil; ptr = ptr.Previous {
-			builder.WriteString(ptr.Hash)
-			builder.WriteByte(';')
-			builder.WriteString(ptr.Path)
-			builder.WriteByte('\n')
+			snapLines = append(snapLines, fmt.Sprintf("%s;%s", ptr.Hash, ptr.Path))
 		}
+		slices.Reverse(snapLines)
+		fileLines = append(fileLines, snapLines...)
 	}
-	err := tgfile.WriteString(fs.IndexPath, builder.String())
+	err := tgfile.WriteStrings(fs.IndexPath, fileLines)
 	if err != nil {
 		return err
 	}
@@ -153,7 +152,9 @@ func (fs *TigFS) DeleteAll() error {
 			return err
 		}
 	}
-	fs.Files = make(TigFileMap, len(fs.Files)+1)
+	for k := range fs.Files {
+		delete(fs.Files, k)
+	}
 	return nil
 }
 
@@ -164,7 +165,7 @@ func (fs *TigFS) Get(filepath string) (*TigFile, bool) {
 }
 
 // FileIsModified check if the file filepath has been modified/added since the last snapshot
-func (fs *TigFS) HasNewVersion(filepath string) (bool, error) {
+func (fs *TigFS) HasChanged(filepath string) (bool, error) {
 	file, ok := fs.Get(filepath)
 	if !ok {
 		return true, nil
@@ -202,7 +203,7 @@ func (tgFile *TigFile) Add() (*TigFileSnapshot, error) {
 	}
 	newFileSnap := &TigFileSnapshot{
 		Hash:     hash,
-		Path:     tgFile.Path,
+		Path:     hash, // Path = hash for now
 		File:     tgFile,
 		Previous: tgFile.Head,
 	}
@@ -213,7 +214,7 @@ func (tgFile *TigFile) Add() (*TigFileSnapshot, error) {
 	// Last so GC can clean if any error
 	tgFile.Head = newFileSnap
 
-	return newFileSnap, nil
+	return newFileSnap, tgFile.FS.save()
 }
 
 // Search search for a specifi snapshot
