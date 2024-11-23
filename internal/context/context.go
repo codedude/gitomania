@@ -12,16 +12,7 @@ const TigRootPath = ".tig"
 const TigConfigFileName = "config"
 
 // TigConfigFileName Path relative to TigRootPath
-const TigTrackFileName = "track"
-
-// Path relative to TigRootPath
-const TigIndexFileName = "index"
-
-// Path relative to TigRootPath
-const TigCommitFileName = "commit"
-
-// Path relative to TigRootPath
-const TigBlobsDirName = "blobs"
+const TigTreeFileName = "tree"
 
 // TigCtx
 type TigCtx struct {

@@ -24,11 +24,14 @@ import (
 	"tig/internal/tgfile"
 )
 
+// TigConfigFileName Path relative to TigRootPath
+const TigTrackFileName = "track"
+
 func ReadTrackFile(ctx context.TigCtx) ([]string, error) {
 	var fileList []string
 
 	fileBytes, err := tgfile.ReadFileLimitBytes(
-		path.Join(ctx.RootPath, context.TigTrackFileName), context.TigMaxFileRead)
+		path.Join(ctx.RootPath, TigTrackFileName), context.TigMaxFileRead)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +53,7 @@ func GetFilesToProcessTrack(ctx context.TigCtx, filesToAdd []string, mode string
 	if err != nil {
 		return err
 	}
-	commit, err := tgcommit.GetOrCreateCommit(ctx)
+	commit, err := tgcommit.GetCurrentCommit(ctx)
 	if err != nil {
 		return err
 	}
@@ -87,7 +90,7 @@ func GetFilesToProcessTrack(ctx context.TigCtx, filesToAdd []string, mode string
 				return errors.New("tig don't know about " + file)
 			}
 			if commit.HasFile(file) {
-				commit.Remove(file)
+				commit.Unstage(file)
 			} else {
 				delete(filesAll, file)
 			}
@@ -104,7 +107,7 @@ func GetFilesToProcessTrack(ctx context.TigCtx, filesToAdd []string, mode string
 		fileList = append(fileList, k)
 	}
 	if err := tgfile.WriteStrings(
-		path.Join(ctx.RootPath, context.TigTrackFileName), fileList); err != nil {
+		path.Join(ctx.RootPath, TigTrackFileName), fileList); err != nil {
 		return err
 	}
 

@@ -17,13 +17,13 @@ import (
 	"path"
 	"tig/internal/context"
 	"tig/internal/tgfile"
+	"tig/internal/track"
 )
 
 // InitSysten read values from system or global tig config
 // Nothing is read inside .tig directory
 func InitSystem(ctx *context.TigCtx) error {
 	ctx.RootPath = path.Join(ctx.Cwd, context.TigRootPath)
-
 	return nil
 }
 
@@ -45,8 +45,14 @@ func CreateTig(ctx *context.TigCtx) error {
 		return err
 	}
 
-	fileTrack, err := os.Create(path.Join(ctx.RootPath, context.TigTrackFileName))
+	fileTrack, err := os.Create(path.Join(ctx.RootPath, track.TigTrackFileName))
 	defer fileTrack.Close()
+	if err != nil {
+		return err
+	}
+
+	fileTree, err := os.Create(path.Join(ctx.RootPath, context.TigTreeFileName))
+	defer fileTree.Close()
 	if err != nil {
 		return err
 	}

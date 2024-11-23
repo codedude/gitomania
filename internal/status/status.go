@@ -17,7 +17,7 @@ func GetStatus(ctx *context.TigCtx) error {
 	if err != nil {
 		return fmt.Errorf("Cannot get track files: %w", err)
 	}
-	commit, err := tgcommit.GetOrCreateCommit(*ctx)
+	commit, err := tgcommit.GetCurrentCommit(*ctx)
 	if err != nil {
 		return fmt.Errorf("Cannot get current commit: %w", err)
 	}

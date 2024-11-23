@@ -3,6 +3,7 @@ package tgfile
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"unsafe"
 )
 
 // In bytes, last number = Mo
@@ -196,4 +198,12 @@ func CopyFile(fileSrc, fileDest string) error {
 		return err
 	}
 	return nil
+}
+
+func StrToBytes(s string) []byte {
+	return unsafe.Slice(unsafe.StringData(s), len(s))
+}
+
+func B64Str(s string) string {
+	return base64.StdEncoding.EncodeToString(StrToBytes(s))
 }

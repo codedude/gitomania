@@ -29,6 +29,7 @@ import (
 	"tig/internal/fs"
 	"tig/internal/loader"
 	"tig/internal/status"
+	"tig/internal/tgcommit"
 	"tig/internal/track"
 )
 
@@ -86,7 +87,7 @@ func run(args []string) int {
 
 	tigCtx.FS, err = fs.New(tigCtx.RootPath)
 	if err != nil {
-		fmt.Println("Error during fs initialization: ", err)
+		fmt.Printf("Error during fs initialization: %s\n", err)
 		return 1
 	}
 	err = tigCtx.FS.Load()
@@ -103,7 +104,11 @@ func run(args []string) int {
 	} else if arg == "rm" {
 		err = track.RmFileTrack(tigCtx, args[2:])
 	} else if arg == "commit" {
-		// err = tgcommit.Commit(tigCtx)
+		if len(args) < 3 {
+			fmt.Println("tig commit require a message argument")
+			return 1
+		}
+		err = tgcommit.Commit(tigCtx, args[2])
 	} else {
 		err = errors.New("Unknown command")
 	}
