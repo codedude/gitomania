@@ -3,7 +3,7 @@ package tgcommit
 /*
 How to store the current commit (not the final one):
 - Line oriented, order does not matter
-- action;filepath;hash
+- List of file staged : action;filepath;hash
 
 ###FILE END
 
@@ -130,9 +130,10 @@ func (c *TigCommit) Stage(ctx context.TigCtx, filepath string) error {
 	var err error
 	var snapshot *fs.TigFileSnapshot
 
-	file, ok := ctx.FS.Get(filepath)
+	filepathClean := path.Clean(filepath)
+	file, ok := ctx.FS.Get(filepathClean)
 	if !ok {
-		file, err := ctx.FS.Add(filepath)
+		file, err := ctx.FS.Add(filepathClean)
 		if err != nil {
 			return err
 		}
@@ -145,20 +146,31 @@ func (c *TigCommit) Stage(ctx context.TigCtx, filepath string) error {
 			return err
 		}
 	}
+	// In case of Stage a file already Stage (but an older version)
+	// Replace it in current commit
+	if c.HasFile(filepathClean) {
+		c.Unstage(filepathClean)
+	}
 	c.Changes = append(c.Changes, TigChange{Action: action, FileSnapshot: snapshot})
 	return nil
 }
 
-func (c *TigCommit) Unstage(filepath string) {
-	var i int
+func (c *TigCommit) Unstage(filepath string) error {
+	var i int = -1
 	for k, v := range c.Changes {
 		if v.FileSnapshot.File.Path == filepath {
 			i = k
 			break
 		}
 	}
+	if i == -1 {
+		return errors.New("Unknown file to unstage: " + filepath)
+	}
+	// Should we really delete it now?
+	c.Changes[i].FileSnapshot.File.Delete(c.Changes[i].FileSnapshot.Hash)
 	c.Changes[i] = c.Changes[len(c.Changes)-1]
 	c.Changes = c.Changes[:len(c.Changes)-1]
+	return nil
 }
 
 func (c *TigCommit) HasFile(filepath string) bool {

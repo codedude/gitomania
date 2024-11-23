@@ -217,6 +217,16 @@ func (tgFile *TigFile) Add() (*TigFileSnapshot, error) {
 	return newFileSnap, tgFile.FS.save()
 }
 
+// Delete delete a snapshot of a [File]
+func (tgFile *TigFile) Delete(hash string) error {
+	snapshot := tgFile.Search(hash)
+	if snapshot == nil {
+		return errors.New("The snapshot does not exist for deletion")
+	}
+	// TODO
+	return nil
+}
+
 // Search search for a specifi snapshot
 func (tgFile *TigFile) Search(hash string) *TigFileSnapshot {
 	for ptr := tgFile.Head; ptr != nil; ptr = ptr.Previous {

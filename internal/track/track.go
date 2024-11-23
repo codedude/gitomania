@@ -90,7 +90,10 @@ func GetFilesToProcessTrack(ctx context.TigCtx, filesToAdd []string, mode string
 				return errors.New("tig don't know about " + file)
 			}
 			if commit.HasFile(file) {
-				commit.Unstage(file)
+				err = commit.Unstage(file)
+				if err != nil {
+					continue
+				}
 			} else {
 				delete(filesAll, file)
 			}
