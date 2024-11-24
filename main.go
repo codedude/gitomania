@@ -1,36 +1,38 @@
 package main
 
 /*
-	Steps 1 (init and track): DONE
-	- init: create a directory .tig with data
-	- status: show tracked and untracked files
-	- add: track file
-	- rm: untrack file
+	Step 1 (init and track): DONE
+	- init: create a directory .tig with data X
+	- status: show tracked and untracked files X
+	- add: track file X
+	- rm: untrack file X
 
-	Steps 2 (commit):
-	- Add modified/created files to the commit
-	- Remove staged files
+	Step 2 (commit):
+	- Add modified/created files to the commit X
+	- Remove staged files X
 	- Commit changes
 	- List commit
 
-	Steps 3 (revert, head):
+	Step 3 (revert, head):
 	- Revert to a specific commit
 	- Delete a commit
 	- Reset head
+
+	Refactor time! Add tests!
+
+	Step 4 (branch):
+	- Create a branch
+	- Switch branch
 
 */
 
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
-	"tig/internal/context"
-	"tig/internal/fs"
-	"tig/internal/loader"
-	"tig/internal/status"
 	"tig/internal/tgcommit"
-	"tig/internal/track"
+	"tig/internal/tgcontext"
+	"tig/internal/tgstatus"
 )
 
 func main() {
@@ -43,77 +45,84 @@ func main() {
 func run(args []string) int {
 	var (
 		err    error
-		tigCtx = context.TigCtx{AuthorName: "codedude"}
+		tigCtx = tgcontext.TigCtx{AuthorName: "codedude"} // TODO: Config will be done later
 	)
 
 	if len(args) < 2 {
 		fmt.Println("No command")
 		return 0
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal("Can't get cwd")
-	}
+	var command string = args[1]
 
-	tigCtx.Cwd = cwd
-	err = loader.InitSystem(&tigCtx)
+	err = tigCtx.LoadPaths()
 	if err != nil {
 		fmt.Println("Error during tig initialization: ", err)
 		return 1
 	}
 
-	var arg string = args[1]
-
-	// Action that dont need FS
-	if arg == "init" {
-		err = loader.CreateTig(&tigCtx)
+	if command == "init" {
+		err = tigCtx.Init()
 		if err != nil {
-			fmt.Println("Error in command ", arg, ": ", err)
+			if errors.Is(err, tgcontext.ErrAlreadyInit) {
+				fmt.Println(err)
+				return 0
+			}
+			fmt.Println("Error in command init: ", err)
 			return 1
 		}
 		return 0
-	} else if arg == "clear" {
-		err = loader.DeleteTig(&tigCtx)
-		if err != nil {
-			fmt.Println("Error in command ", arg, ": ", err)
+	}
+
+	err = tigCtx.LoadConfig()
+	if err != nil {
+		if errors.Is(err, tgcontext.ErrNotInit) {
+			fmt.Println(err)
 			return 1
 		}
-		return 0
-	} else if arg == "reset" {
-		loader.DeleteTig(&tigCtx)
-		loader.CreateTig(&tigCtx)
-		return 0
-	}
-
-	tigCtx.FS, err = fs.New(tigCtx.RootPath)
-	if err != nil {
-		fmt.Printf("Error during fs initialization: %s\n", err)
-		return 1
-	}
-	err = tigCtx.FS.Load()
-	if err != nil {
-		fmt.Println("Error during fs loading: ", err)
+		fmt.Println("Error during tig configuration loading: ", err)
 		return 1
 	}
 
-	// Action that need FS
-	if arg == "status" {
-		err = status.GetStatus(&tigCtx)
-	} else if arg == "add" {
-		err = track.AddFileTrack(tigCtx, args[2:])
-	} else if arg == "rm" {
-		err = track.RmFileTrack(tigCtx, args[2:])
-	} else if arg == "commit" {
+	err = tigCtx.LoadFS()
+	if err != nil {
+		fmt.Println("Error during tig initialization: ", err)
+		return 1
+	}
+	_, err = tgcommit.LoadCommits(tigCtx)
+	if err != nil {
+		fmt.Printf("Error during tree initialization: %s\n", err)
+		return 1
+	}
+
+	if command == "status" {
+		err = tgstatus.GetStatus(&tigCtx)
+	} else if command == "add" {
+		err = tgstatus.AddFileTrack(tigCtx, args[2:])
+	} else if command == "rm" {
+		err = tgstatus.RmFileTrack(tigCtx, args[2:])
+	} else if command == "commit" {
 		if len(args) < 3 {
 			fmt.Println("tig commit require a message argument")
 			return 1
 		}
 		err = tgcommit.Commit(tigCtx, args[2])
+	} else if command == "reset" {
+		// DEV ONLY
+		err = tigCtx.Delete()
+		if err != nil {
+			fmt.Printf("Error in command %s: %s\n", command, err)
+			return 1
+		}
+		err = tigCtx.Init()
+		if err != nil {
+			fmt.Printf("Error in command %s: %s\n", command, err)
+			return 1
+		}
 	} else {
 		err = errors.New("Unknown command")
 	}
 	if err != nil {
-		fmt.Println("Error in command ", arg, ": ", err)
+		fmt.Println("Error in command ", command, ": ", err)
 		return 1
 	}
 

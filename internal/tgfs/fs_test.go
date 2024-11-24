@@ -1,4 +1,4 @@
-package fs
+package tgfs
 
 import (
 	"bytes"
@@ -30,7 +30,7 @@ func generateFakeFs(t *testing.T, fileList []string) (*TigFS, string) {
 			tigFile.Head = fileSnap
 		}
 	}
-	err = tgfile.WriteStrings(newFs.IndexPath, indexFile)
+	err = tgfile.WriteFileLines(newFs.IndexPath, indexFile)
 	if err != nil {
 		t.Fatalf("Error GenerateFakeFs write index: %s", err)
 	}
@@ -105,7 +105,7 @@ func TestFSAdd(t *testing.T) {
 	}
 	fileToAdd := "hello.go"
 	fullFilePath := path.Join(tmpDirPath, fileToAdd)
-	if err := tgfile.WriteString(fullFilePath, "Hello world"); err != nil {
+	if err := tgfile.WriteFileString(fullFilePath, "Hello world"); err != nil {
 		t.Fatalf("Error file WriteString: %s", err)
 	}
 	if _, err = fs_to_test.Add(fullFilePath); err != nil {

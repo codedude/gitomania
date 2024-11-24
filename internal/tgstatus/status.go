@@ -1,19 +1,18 @@
-package status
+package tgstatus
 
 import (
 	"fmt"
-	"tig/internal/context"
 	"tig/internal/tgcommit"
+	"tig/internal/tgcontext"
 	"tig/internal/tgfile"
-	"tig/internal/track"
 )
 
-func GetStatus(ctx *context.TigCtx) error {
-	cwdFileList, err := tgfile.GetDirTreeFileList(".")
+func GetStatus(ctx *tgcontext.TigCtx) error {
+	cwdFileList, err := tgfile.GetDirTree(".")
 	if err != nil {
 		return fmt.Errorf("Cannot get file tree: %w", err)
 	}
-	trackFileList, err := track.ReadTrackFile(*ctx)
+	trackFileList, err := ReadTrackFile(*ctx)
 	if err != nil {
 		return fmt.Errorf("Cannot get track files: %w", err)
 	}
@@ -42,7 +41,8 @@ func GetStatus(ctx *context.TigCtx) error {
 	fmt.Println("Commit:")
 	for _, v := range commit.Changes {
 		commitFiles[v.FileSnapshot.File.Path] = true
-		fmt.Println("\t", tgcommit.ChangeActionToStr(v.Action), ":\t", v.FileSnapshot.File.Path)
+		fmt.Println(fmt.Sprintf(
+			"\t%s:\t%s", tgcommit.ChangeActionToStr(v.Action), v.FileSnapshot.File.Path))
 	}
 
 	fmt.Println("\nTrack files:")
@@ -65,9 +65,9 @@ func GetStatus(ctx *context.TigCtx) error {
 			fileState = "delete"
 		}
 		if len(fileState) > 0 {
-			fmt.Println("\t", fileState, ":\t", k)
+			fmt.Println(fmt.Sprintf("\t%s:\t%s", fileState, k))
 		} else {
-			fmt.Println("\t\t", k)
+			fmt.Println(fmt.Sprintf("\t\t%s", k))
 		}
 	}
 	fmt.Println("\nUntrack files:")

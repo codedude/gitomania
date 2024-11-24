@@ -1,4 +1,4 @@
-package track
+package tgstatus
 
 /*
 How to store tracked files:
@@ -19,19 +19,22 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"tig/internal/context"
 	"tig/internal/tgcommit"
+	"tig/internal/tgcontext"
 	"tig/internal/tgfile"
 )
 
 // TigConfigFileName Path relative to TigRootPath
 const TigTrackFileName = "track"
 
-func ReadTrackFile(ctx context.TigCtx) ([]string, error) {
+func ReadTrackFile(ctx tgcontext.TigCtx) ([]string, error) {
 	var fileList []string
 
-	fileBytes, err := tgfile.ReadFileLimitBytes(
-		path.Join(ctx.RootPath, TigTrackFileName), context.TigMaxFileRead)
+	fd, err := tgfile.Create(path.Join(ctx.TigPath, TigTrackFileName), os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	fileBytes, err := tgfile.ReadFdBytes(fd, tgfile.MAX_FILE_SIZE)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +47,7 @@ func ReadTrackFile(ctx context.TigCtx) ([]string, error) {
 	return fileList, nil
 }
 
-func GetFilesToProcessTrack(ctx context.TigCtx, filesToAdd []string, mode string) error {
+func GetFilesToProcessTrack(ctx tgcontext.TigCtx, filesToAdd []string, mode string) error {
 	if len(filesToAdd) == 0 {
 		return errors.New("No file to process")
 	}
@@ -109,18 +112,18 @@ func GetFilesToProcessTrack(ctx context.TigCtx, filesToAdd []string, mode string
 	for k := range filesAll {
 		fileList = append(fileList, k)
 	}
-	if err := tgfile.WriteStrings(
-		path.Join(ctx.RootPath, TigTrackFileName), fileList); err != nil {
+	if err := tgfile.WriteFileLines(
+		path.Join(ctx.TigPath, TigTrackFileName), fileList); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func AddFileTrack(ctx context.TigCtx, files []string) error {
+func AddFileTrack(ctx tgcontext.TigCtx, files []string) error {
 	return GetFilesToProcessTrack(ctx, files, "add")
 }
 
-func RmFileTrack(ctx context.TigCtx, files []string) error {
+func RmFileTrack(ctx tgcontext.TigCtx, files []string) error {
 	return GetFilesToProcessTrack(ctx, files, "rm")
 }

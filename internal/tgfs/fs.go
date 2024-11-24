@@ -1,4 +1,4 @@
-package fs
+package tgfs
 
 import (
 	"errors"
@@ -31,8 +31,8 @@ a0e9720b207e;a0e9720b207e
 
 const SEPARATOR string = ";"
 
-const tigFSIndexPath string = "index"     // File
-const tigFSObjectsPath string = "objects" // Directory
+const tigFSIndexFileName string = "_index" // File (_file so it's first in filetree list)
+const tigFSPath string = "fs"              // Directory
 
 type TigFileSnapshot struct {
 	Hash     string           // Content hash of the file at snapshot
@@ -50,38 +50,40 @@ type TigFile struct {
 type TigFileMap = map[string]*TigFile
 
 type TigFS struct {
-	Files       TigFileMap
-	IndexPath   string
-	ObjectsPath string
+	Files     TigFileMap
+	IndexPath string
+	DirPath   string
 }
 
 // New initialise a new/existing FS in directory rootDir.
-// Subsequent call of New wont erase local files, but the in memory representation
-// of the FS can diverge, so don't call New multiple times.
+// Do not call multiple times
 func New(rootDir string) (*TigFS, error) {
 	cleanRootDir := path.Clean(rootDir)
+	cleanFSPath := path.Join(cleanRootDir, tigFSPath)
 	fs := &TigFS{
-		Files:       make(TigFileMap, 32),
-		IndexPath:   path.Join(cleanRootDir, tigFSIndexPath),
-		ObjectsPath: path.Join(cleanRootDir, tigFSObjectsPath),
+		Files:     make(TigFileMap, 32),
+		IndexPath: path.Join(cleanFSPath, tigFSIndexFileName),
+		DirPath:   cleanFSPath,
 	}
-	if err := os.Mkdir(fs.ObjectsPath, tgfile.FILE_PERM); err != nil {
+	if err := os.Mkdir(fs.DirPath, tgfile.FILE_PERM); err != nil {
 		if !os.IsExist(err) {
 			return nil, err
 		}
 	}
-	f, err := os.OpenFile(fs.IndexPath, os.O_CREATE|os.O_RDONLY, 0644)
+	fd, err := tgfile.Create(fs.IndexPath, 0)
 	if err != nil {
-		return nil, err
+		if !os.IsExist(err) {
+			return nil, err
+		}
 	}
-	f.Close()
+	defer fd.Close()
 	return fs, nil
 }
 
 // Load read the index file to popuplate the FS.
 // Load is idempotent.
 func (fs *TigFS) Load() error {
-	lines, err := tgfile.ReadFileLimitLines(fs.IndexPath, tgfile.MAX_FILE_SIZE)
+	lines, err := tgfile.ReadFileLines(fs.IndexPath, tgfile.MAX_FILE_SIZE)
 	if err != nil {
 		return err
 	}
@@ -130,30 +132,9 @@ func (fs *TigFS) save() error {
 		slices.Reverse(snapLines)
 		fileLines = append(fileLines, snapLines...)
 	}
-	err := tgfile.WriteStrings(fs.IndexPath, fileLines)
+	err := tgfile.WriteFileLines(fs.IndexPath, fileLines)
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-// DeleteAll delete all data and files of the FS.
-func (fs *TigFS) DeleteAll() error {
-	if err := os.RemoveAll(fs.ObjectsPath); err != nil {
-		return err
-	}
-	f, err := os.Open(fs.IndexPath)
-	if err != nil {
-		return err
-	}
-	f.Close()
-	if err := os.Mkdir(fs.ObjectsPath, tgfile.FILE_PERM); err != nil {
-		if !os.IsExist(err) {
-			return err
-		}
-	}
-	for k := range fs.Files {
-		delete(fs.Files, k)
 	}
 	return nil
 }
@@ -207,7 +188,7 @@ func (tgFile *TigFile) Add() (*TigFileSnapshot, error) {
 		File:     tgFile,
 		Previous: tgFile.Head,
 	}
-	err = tgfile.CopyFile(tgFile.Path, path.Join(tgFile.FS.ObjectsPath, hash))
+	err = tgfile.CopyFile(tgFile.Path, path.Join(tgFile.FS.DirPath, hash))
 	if err != nil {
 		return nil, fmt.Errorf("Add create copy: %w", err)
 	}

@@ -3,7 +3,6 @@ package tgfile
 import (
 	"bytes"
 	"crypto/sha1"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -11,16 +10,38 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"unsafe"
 )
 
 // In bytes, last number = Mo
 const MAX_FILE_SIZE = 1024 * 1024 * 64
+
+// Default permission when creating a file
 const FILE_PERM = 0o764
 
-// ReadFdLimitBytes is the same as ReadFile, but read no more then 'limit' bytes
+// Default permission when creating a directory
+const DIR_PERM = 0o764
+
+// Open is a wrapper around [os.OpenFile]. The file is open with no flag by default.
+// Use when you want to Open a file for reading or writting, not for creation.
+func Open(filepath string, flag int) (*os.File, error) {
+	return os.OpenFile(
+		filepath,
+		flag,
+		FILE_PERM)
+}
+
+// Create is a wrapper around [os.OpenFile]. The file is open with at least 'O_CREATE' flag.
+// Use when you want to ensure file exists or is created, not when you know the file already exists beforehand.
+func Create(filepath string, flag int) (*os.File, error) {
+	return os.OpenFile(
+		filepath,
+		os.O_CREATE|flag,
+		FILE_PERM)
+}
+
+// ReadFdBytes is the same as ReadFile, but read no more then 'limit' bytes
 // cf : https://cs.opensource.google/go/go/+/refs/tags/go1.23.3:src/os/file.go;l=783
-func ReadFdLimitBytes(f *os.File, limit int) ([]byte, error) {
+func ReadFdBytes(f *os.File, limit int) ([]byte, error) {
 	var size int
 	if info, err := f.Stat(); err == nil {
 		size64 := info.Size()
@@ -52,8 +73,8 @@ func ReadFdLimitBytes(f *os.File, limit int) ([]byte, error) {
 	}
 }
 
-func ReadFdLimitLines(f *os.File, limit int) ([]string, error) {
-	fileBytes, err := ReadFdLimitBytes(f, limit)
+func ReadFdLines(f *os.File, limit int) ([]string, error) {
+	fileBytes, err := ReadFdBytes(f, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -66,27 +87,43 @@ func ReadFdLimitLines(f *os.File, limit int) ([]string, error) {
 	return bufStrLines, nil
 }
 
-func ReadFileLimitBytes(filePath string, limit int) ([]byte, error) {
-	f, err := os.Open(filePath)
+func ReadFileBytes(filePath string, limit int) ([]byte, error) {
+	f, err := Open(filePath, os.O_RDONLY)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return ReadFdLimitBytes(f, limit)
+	return ReadFdBytes(f, limit)
 }
 
-func ReadFileLimitLines(filePath string, limit int) ([]string, error) {
-	f, err := os.Open(filePath)
+func ReadFileLines(filePath string, limit int) ([]string, error) {
+	f, err := Open(filePath, os.O_RDONLY)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return ReadFdLimitLines(f, limit)
+	return ReadFdLines(f, limit)
 }
 
-func WriteStrings(filename string, data []string) error {
+// WriteFileString write a string to a file, create it if needed
+func WriteFileString(filename string, data string) error {
 	var err error
-	file, err := os.Create(filename)
+	file, err := Open(filename, os.O_CREATE|os.O_WRONLY)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	_, err = file.WriteString(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// WriteFileLines write a list of string (one per line) to a file, create it if needed
+func WriteFileLines(filename string, data []string) error {
+	var err error
+	file, err := Open(filename, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
 		return err
 	}
@@ -104,23 +141,10 @@ func WriteStrings(filename string, data []string) error {
 	return nil
 }
 
-func WriteString(filename string, data string) error {
+// WriteFileBytes write a bytes buffer to a file, create it if needed
+func WriteFileBytes(filename string, data []byte) error {
 	var err error
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = file.WriteString(data)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func WriteBytes(filename string, data []byte) error {
-	var err error
-	file, err := os.Create(filename)
+	file, err := Create(filename, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
 		return err
 	}
@@ -132,7 +156,7 @@ func WriteBytes(filename string, data []byte) error {
 	return nil
 }
 
-func GetDirTreeFileList(rootDirPath string) ([]string, error) {
+func GetDirTree(rootDirPath string) ([]string, error) {
 	var fileList []string
 
 	dirToWalk := []string{rootDirPath}
@@ -164,14 +188,9 @@ func GetDirTreeFileList(rootDirPath string) ([]string, error) {
 	return fileList, nil
 }
 
-func HashBytes(data []byte) string {
-	h := sha1.New()
-	h.Write(data)
-	return hex.EncodeToString(h.Sum(nil))
-}
-
+// HashFile return the sha1 of a file
 func HashFile(filepath string) (string, error) {
-	f, err := os.Open(filepath)
+	f, err := Open(filepath, os.O_RDONLY)
 	if err != nil {
 		return "", err
 	}
@@ -184,26 +203,21 @@ func HashFile(filepath string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// CopyFile copy the fileSrc to fileDest, fileDest is overwritten if it exists
 func CopyFile(fileSrc, fileDest string) error {
-	fSrc, err := os.Open(fileSrc)
+	fSrc, err := Open(fileSrc, os.O_RDONLY)
 	if err != nil {
 		return err
 	}
-	fDest, err := os.Create(fileDest)
+	defer fSrc.Close()
+	fDest, err := Create(fileDest, os.O_TRUNC|os.O_WRONLY)
 	if err != nil {
 		return err
 	}
+	defer fDest.Close()
 	_, err = io.Copy(fDest, fSrc)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func StrToBytes(s string) []byte {
-	return unsafe.Slice(unsafe.StringData(s), len(s))
-}
-
-func B64Str(s string) string {
-	return base64.StdEncoding.EncodeToString(StrToBytes(s))
 }

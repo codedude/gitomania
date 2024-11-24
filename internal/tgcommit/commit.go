@@ -16,14 +16,17 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"tig/internal/context"
-	"tig/internal/fs"
+	"tig/internal/tgcontext"
 	"tig/internal/tgfile"
+	"tig/internal/tgfs"
 	"time"
 )
 
-// Path relative to TigRootPath
+// TigCommitFileName Path relative to TigRootPath
 const TigCommitFileName = "commit"
+
+// TigConfigFileName Path relative to TigRootPath
+const TigTreeFileName = "tree"
 
 type ChangeAction int
 
@@ -36,7 +39,7 @@ const (
 
 type TigChange struct {
 	Action       ChangeAction
-	FileSnapshot *fs.TigFileSnapshot // contains last snapshot if DELETE
+	FileSnapshot *tgfs.TigFileSnapshot // contains last snapshot if DELETE
 }
 
 type TigCommit struct {
@@ -46,6 +49,11 @@ type TigCommit struct {
 	Id       string
 	ParentId string      // '-' on first commit, no parent
 	Changes  []TigChange // contains always at least 1 Change
+}
+
+type TigCommitTree struct {
+	Head    *TigCommit
+	Commits map[string]*TigCommit
 }
 
 func ChangeActionToStr(action ChangeAction) string {
@@ -61,17 +69,14 @@ func ChangeActionToStr(action ChangeAction) string {
 }
 
 // GetCurrentCommit read the commit file, or create it if it does not exists
-func GetCurrentCommit(ctx context.TigCtx) (*TigCommit, error) {
-	f, err := os.OpenFile(
-		path.Join(ctx.RootPath, TigCommitFileName),
-		os.O_CREATE|os.O_RDONLY,
-		0644)
+func GetCurrentCommit(ctx tgcontext.TigCtx) (*TigCommit, error) {
+	fd, err := tgfile.Create(path.Join(ctx.TigPath, TigCommitFileName), os.O_RDONLY)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer fd.Close()
 
-	fileLines, err := tgfile.ReadFdLimitLines(f, tgfile.MAX_FILE_SIZE)
+	fileLines, err := tgfile.ReadFdLines(fd, tgfile.MAX_FILE_SIZE)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +108,7 @@ func GetCurrentCommit(ctx context.TigCtx) (*TigCommit, error) {
 }
 
 // Commit get the current commit and commit it
-func Commit(ctx context.TigCtx, msg string) error {
+func Commit(ctx tgcontext.TigCtx, msg string) error {
 	commit, err := GetCurrentCommit(ctx)
 	if err != nil {
 		return err
@@ -111,24 +116,24 @@ func Commit(ctx context.TigCtx, msg string) error {
 	return commit.Commit(ctx, msg)
 }
 
-func (c *TigCommit) Save(ctx context.TigCtx) error {
+func (c *TigCommit) Save(ctx tgcontext.TigCtx) error {
 	var fileLines []string
 	for _, change := range c.Changes {
 		fileLines = append(fileLines, fmt.Sprintf("%d;%s;%s",
 			change.Action, change.FileSnapshot.File.Path, change.FileSnapshot.Hash))
 	}
-	err := tgfile.WriteStrings(
-		path.Join(ctx.RootPath, TigCommitFileName), fileLines)
+	err := tgfile.WriteFileLines(
+		path.Join(ctx.TigPath, TigCommitFileName), fileLines)
 	if err != nil {
 		return fmt.Errorf("Cannot save commit: %w", err)
 	}
 	return nil
 }
 
-func (c *TigCommit) Stage(ctx context.TigCtx, filepath string) error {
+func (c *TigCommit) Stage(ctx tgcontext.TigCtx, filepath string) error {
 	var action ChangeAction
 	var err error
-	var snapshot *fs.TigFileSnapshot
+	var snapshot *tgfs.TigFileSnapshot
 
 	filepathClean := path.Clean(filepath)
 	file, ok := ctx.FS.Get(filepathClean)
@@ -182,7 +187,7 @@ func (c *TigCommit) HasFile(filepath string) bool {
 	return false
 }
 
-func (c *TigCommit) Commit(ctx context.TigCtx, msg string) error {
+func (c *TigCommit) Commit(ctx tgcontext.TigCtx, msg string) error {
 	// X 1- Remplir les infos du commit
 	// 2- Ecrire dans le fichiers des commits
 	// 3- Reset le fichier de commit en cours
@@ -193,4 +198,9 @@ func (c *TigCommit) Commit(ctx context.TigCtx, msg string) error {
 	c.Id = tgfile.HashBytes(tgfile.StrToBytes(fmt.Sprintf("%s;%d", c.Author, c.Date)))
 
 	return nil
+}
+
+func LoadCommits(ctx tgcontext.TigCtx) (*TigCommitTree, error) {
+	tree := TigCommitTree{Head: nil, Commits: make(map[string]*TigCommit, 16)}
+	return &tree, nil
 }
