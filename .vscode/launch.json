@@ -9,7 +9,7 @@
       "program": "main.go",
       "cwd": "${workspaceFolder}",
       "args": [
-        "add",
+        "rm",
         "main.go"
       ],
       // "logOutput": "dap",

@@ -12,7 +12,7 @@ func GetStatus(ctx *tgcontext.TigCtx) error {
 	if err != nil {
 		return fmt.Errorf("Cannot get file tree: %w", err)
 	}
-	trackFileList, err := ReadTrackFile(*ctx)
+	trackFileList, err := getTrackedFiles(*ctx)
 	if err != nil {
 		return fmt.Errorf("Cannot get track files: %w", err)
 	}

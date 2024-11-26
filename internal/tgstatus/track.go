@@ -27,7 +27,7 @@ import (
 // TigConfigFileName Path relative to TigRootPath
 const TigTrackFileName = "track"
 
-func ReadTrackFile(ctx tgcontext.TigCtx) ([]string, error) {
+func getTrackedFiles(ctx tgcontext.TigCtx) ([]string, error) {
 	var fileList []string
 
 	fd, err := tgfile.Create(path.Join(ctx.TigPath, TigTrackFileName), os.O_RDONLY)
@@ -47,83 +47,100 @@ func ReadTrackFile(ctx tgcontext.TigCtx) ([]string, error) {
 	return fileList, nil
 }
 
-func GetFilesToProcessTrack(ctx tgcontext.TigCtx, filesToAdd []string, mode string) error {
-	if len(filesToAdd) == 0 {
-		return errors.New("No file to process")
+func beforeAddRemoveFile(ctx tgcontext.TigCtx, fileList []string) (map[string]bool, *tgcommit.TigCommit, error) {
+	if len(fileList) == 0 {
+		return nil, nil, errors.New("No file to process")
 	}
-
-	filesTracked, err := ReadTrackFile(ctx)
+	filesTracked, err := getTrackedFiles(ctx)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
-	commit, err := tgcommit.GetCurrentCommit(ctx)
-	if err != nil {
-		return err
-	}
-
 	filesAll := make(map[string]bool, 32)
 	for _, file := range filesTracked {
 		filesAll[path.Clean(file)] = true
 	}
-	for _, file := range filesToAdd {
-		file = path.Clean(file)
-		_, err := os.Stat(file)
-		if mode == "add" {
-			if errors.Is(err, os.ErrNotExist) {
-				return errors.New("File " + file + " does not exist")
-			} else {
-				if _, ok := filesAll[file]; !ok {
-					// First time we see it, add it to track list
-					filesAll[file] = true
-				}
-				// Commit in both case, only if file has changed
-				fileIsModified, err := ctx.FS.HasChanged(file)
-				if err != nil {
-					return err
-				}
-				if fileIsModified {
-					err = commit.Stage(ctx, file)
-					if err != nil {
-						return fmt.Errorf("Cannot stage file %s: %w", file, err)
-					}
-				}
-			}
-		} else {
-			if _, ok := filesAll[file]; !ok {
-				return errors.New("tig don't know about " + file)
-			}
-			if commit.HasFile(file) {
-				err = commit.Unstage(file)
-				if err != nil {
-					continue
-				}
-			} else {
-				delete(filesAll, file)
-			}
-		}
+	commit, err := tgcommit.GetCurrentCommit(ctx)
+	if err != nil {
+		return nil, nil, err
 	}
+	return filesAll, commit, nil
+}
 
-	err = commit.Save(ctx)
+func afterAddRemoveFile(ctx tgcontext.TigCtx, commit *tgcommit.TigCommit, fileMap map[string]bool) error {
+	err := commit.Save(ctx)
 	if err != nil {
 		return err
 	}
-
-	var fileList []string
-	for k := range filesAll {
-		fileList = append(fileList, k)
+	var newTrackList []string
+	for k := range fileMap {
+		newTrackList = append(newTrackList, k)
 	}
 	if err := tgfile.WriteFileLines(
-		path.Join(ctx.TigPath, TigTrackFileName), fileList); err != nil {
+		path.Join(ctx.TigPath, TigTrackFileName), newTrackList); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func AddFileTrack(ctx tgcontext.TigCtx, files []string) error {
-	return GetFilesToProcessTrack(ctx, files, "add")
+func AddFile(ctx tgcontext.TigCtx, fileList []string) error {
+	filesMap, commit, err := beforeAddRemoveFile(ctx, fileList)
+	if err != nil {
+		return fmt.Errorf("AddFile: %w", err)
+	}
+	for _, file := range fileList {
+		file = path.Clean(file)
+		_, err := os.Stat(file)
+
+		if errors.Is(err, os.ErrNotExist) {
+			return errors.New("File " + file + " does not exist")
+		} else {
+			if _, ok := filesMap[file]; !ok {
+				// First time we see it, add it to track list
+				filesMap[file] = true
+			}
+			// Commit in both case, only if file has changed
+			fileIsModified, err := ctx.FS.HasChanged(file)
+			if err != nil {
+				return fmt.Errorf("AddFile: %w", err)
+			}
+			if fileIsModified {
+				err = commit.Stage(ctx, file)
+				if err != nil {
+					return fmt.Errorf("AddFile: Cannot stage file %s: %w", file, err)
+				}
+			}
+		}
+	}
+	err = afterAddRemoveFile(ctx, commit, filesMap)
+	if err != nil {
+		return fmt.Errorf("AddFile: %w", err)
+	}
+	return nil
 }
 
-func RmFileTrack(ctx tgcontext.TigCtx, files []string) error {
-	return GetFilesToProcessTrack(ctx, files, "rm")
+func RemoveFile(ctx tgcontext.TigCtx, fileList []string) error {
+	filesMap, commit, err := beforeAddRemoveFile(ctx, fileList)
+	if err != nil {
+		return fmt.Errorf("RemoveFile: %w", err)
+	}
+	for _, file := range fileList {
+		file = path.Clean(file)
+		if _, ok := filesMap[file]; !ok {
+			return errors.New("Tig don't know about " + file)
+		}
+		if commit.HasFile(file) {
+			err = commit.Unstage(file)
+			if err != nil {
+				continue
+			}
+		} else {
+			delete(filesMap, file)
+		}
+
+	}
+	err = afterAddRemoveFile(ctx, commit, filesMap)
+	if err != nil {
+		return fmt.Errorf("RemoveFile: %w", err)
+	}
+	return nil
 }

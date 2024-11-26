@@ -105,10 +105,10 @@ func ReadFileLines(filePath string, limit int) ([]string, error) {
 	return ReadFdLines(f, limit)
 }
 
-// WriteFileString write a string to a file, create it if needed
+// WriteFileString write a string to a file, create it if needed (truncate)
 func WriteFileString(filename string, data string) error {
 	var err error
-	file, err := Open(filename, os.O_CREATE|os.O_WRONLY)
+	file, err := Open(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY)
 	if err != nil {
 		return err
 	}
@@ -120,10 +120,10 @@ func WriteFileString(filename string, data string) error {
 	return nil
 }
 
-// WriteFileLines write a list of string (one per line) to a file, create it if needed
+// WriteFileLines write a list of string (one per line) to a file, create it if needed (truncate)
 func WriteFileLines(filename string, data []string) error {
 	var err error
-	file, err := Open(filename, os.O_CREATE|os.O_WRONLY)
+	file, err := Open(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY)
 	if err != nil {
 		return err
 	}
@@ -141,10 +141,10 @@ func WriteFileLines(filename string, data []string) error {
 	return nil
 }
 
-// WriteFileBytes write a bytes buffer to a file, create it if needed
+// WriteFileBytes write a bytes buffer to a file, create it if needed (truncate)
 func WriteFileBytes(filename string, data []byte) error {
 	var err error
-	file, err := Create(filename, os.O_CREATE|os.O_WRONLY)
+	file, err := Create(filename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY)
 	if err != nil {
 		return err
 	}

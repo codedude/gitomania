@@ -1,28 +1,28 @@
 package main
 
 /*
-	Step 1 (init and track): DONE
-	- init: create a directory .tig with data X
-	- status: show tracked and untracked files X
-	- add: track file X
-	- rm: untrack file X
+Step 1 (init and track): DONE
+- init: create a directory .tig with data X
+- status: show tracked and untracked files X
+- add: track file X
+- rm: untrack file X
 
-	Step 2 (commit):
-	- Add modified/created files to the commit X
-	- Remove staged files X
-	- Commit changes
-	- List commit
+Step 2 (commit):
+- Add modified/created files to the commit X
+- Remove staged files X
+- Commit changes
+- List commit
 
-	Step 3 (revert, head):
-	- Revert to a specific commit
-	- Delete a commit
-	- Reset head
+Step 3 (revert, head):
+- Revert to a specific commit
+- Delete a commit
+- Reset head
 
-	Refactor time! Add tests!
+Refactor time! Add tests!
 
-	Step 4 (branch):
-	- Create a branch
-	- Switch branch
+Step 4 (branch):
+- Create a branch
+- Switch branch
 
 */
 
@@ -97,9 +97,9 @@ func run(args []string) int {
 	if command == "status" {
 		err = tgstatus.GetStatus(&tigCtx)
 	} else if command == "add" {
-		err = tgstatus.AddFileTrack(tigCtx, args[2:])
+		err = tgstatus.AddFile(tigCtx, args[2:])
 	} else if command == "rm" {
-		err = tgstatus.RmFileTrack(tigCtx, args[2:])
+		err = tgstatus.RemoveFile(tigCtx, args[2:])
 	} else if command == "commit" {
 		if len(args) < 3 {
 			fmt.Println("tig commit require a message argument")
