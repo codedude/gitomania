@@ -1,31 +1,5 @@
 package main
 
-/*
-Step 1 (init and track): DONE
-- init: create a directory .tig with data X
-- status: show tracked and untracked files X
-- add: track file X
-- rm: untrack file X
-
-Step 2 (commit):
-- Add modified/created files to the commit X
-- Remove staged files X
-- Commit changes
-- List commit
-
-Step 3 (revert, head):
-- Revert to a specific commit
-- Delete a commit
-- Reset head
-
-Refactor time! Add tests!
-
-Step 4 (branch):
-- Create a branch
-- Switch branch
-
-*/
-
 import (
 	"errors"
 	"fmt"
