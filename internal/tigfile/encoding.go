@@ -1,4 +1,4 @@
-package tgfile
+package tigfile
 
 import (
 	"crypto/sha1"

@@ -1,4 +1,4 @@
-package tgstatus
+package tigindex
 
 /*
 How to store tracked files:
@@ -8,7 +8,7 @@ How to store tracked files:
 
 ###FILE START
 ab42cd64ef01;main.go
-a0e9720b207e;internal/commit/tgcommit.go
+a0e9720b207e;internal/commit/tighistory.go
 ###FILE END
 
 */
@@ -19,22 +19,22 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"tig/internal/tgcommit"
-	"tig/internal/tgcontext"
-	"tig/internal/tgfile"
+	"tig/internal/tigconfig"
+	"tig/internal/tigfile"
+	"tig/internal/tighistory"
 )
 
 // TigConfigFileName Path relative to TigRootPath
 const TigTrackFileName = "track"
 
-func getTrackedFiles(ctx tgcontext.TigCtx) ([]string, error) {
+func getTrackedFiles(ctx tigconfig.TigCtx) ([]string, error) {
 	var fileList []string
 
-	fd, err := tgfile.Create(path.Join(ctx.TigPath, TigTrackFileName), os.O_RDONLY)
+	fd, err := tigfile.Create(path.Join(ctx.TigPath, TigTrackFileName), os.O_RDONLY)
 	if err != nil {
 		return nil, err
 	}
-	fileBytes, err := tgfile.ReadFdBytes(fd, tgfile.MAX_FILE_SIZE)
+	fileBytes, err := tigfile.ReadFdBytes(fd, tigfile.MAX_FILE_SIZE)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func getTrackedFiles(ctx tgcontext.TigCtx) ([]string, error) {
 	return fileList, nil
 }
 
-func beforeAddRemoveFile(ctx tgcontext.TigCtx, fileList []string) (map[string]bool, *tgcommit.TigCommit, error) {
+func beforeAddRemoveFile(ctx tigconfig.TigCtx, fileList []string) (map[string]bool, *tighistory.TigCommit, error) {
 	if len(fileList) == 0 {
 		return nil, nil, errors.New("No file to process")
 	}
@@ -59,14 +59,14 @@ func beforeAddRemoveFile(ctx tgcontext.TigCtx, fileList []string) (map[string]bo
 	for _, file := range filesTracked {
 		filesAll[path.Clean(file)] = true
 	}
-	commit, err := tgcommit.GetCurrentCommit(ctx)
+	commit, err := tighistory.GetCurrentCommit(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	return filesAll, commit, nil
 }
 
-func afterAddRemoveFile(ctx tgcontext.TigCtx, commit *tgcommit.TigCommit, fileMap map[string]bool) error {
+func afterAddRemoveFile(ctx tigconfig.TigCtx, commit *tighistory.TigCommit, fileMap map[string]bool) error {
 	err := commit.Save(ctx)
 	if err != nil {
 		return err
@@ -75,14 +75,14 @@ func afterAddRemoveFile(ctx tgcontext.TigCtx, commit *tgcommit.TigCommit, fileMa
 	for k := range fileMap {
 		newTrackList = append(newTrackList, k)
 	}
-	if err := tgfile.WriteFileLines(
+	if err := tigfile.WriteFileLines(
 		path.Join(ctx.TigPath, TigTrackFileName), newTrackList); err != nil {
 		return err
 	}
 	return nil
 }
 
-func AddFile(ctx tgcontext.TigCtx, fileList []string) error {
+func AddFile(ctx tigconfig.TigCtx, fileList []string) error {
 	filesMap, commit, err := beforeAddRemoveFile(ctx, fileList)
 	if err != nil {
 		return fmt.Errorf("AddFile: %w", err)
@@ -94,16 +94,20 @@ func AddFile(ctx tgcontext.TigCtx, fileList []string) error {
 		if errors.Is(err, os.ErrNotExist) {
 			return errors.New("File " + file + " does not exist")
 		} else {
+			mustStage := false
 			if _, ok := filesMap[file]; !ok {
 				// First time we see it, add it to track list
 				filesMap[file] = true
+				mustStage = true
+			} else {
+				fileIsModified, err := ctx.FS.HasChanged(file)
+				if err != nil {
+					return fmt.Errorf("AddFile: %w", err)
+				}
+				mustStage = fileIsModified
 			}
 			// Commit in both case, only if file has changed
-			fileIsModified, err := ctx.FS.HasChanged(file)
-			if err != nil {
-				return fmt.Errorf("AddFile: %w", err)
-			}
-			if fileIsModified {
+			if mustStage {
 				err = commit.Stage(ctx, file)
 				if err != nil {
 					return fmt.Errorf("AddFile: Cannot stage file %s: %w", file, err)
@@ -118,7 +122,7 @@ func AddFile(ctx tgcontext.TigCtx, fileList []string) error {
 	return nil
 }
 
-func RemoveFile(ctx tgcontext.TigCtx, fileList []string) error {
+func RemoveFile(ctx tigconfig.TigCtx, fileList []string) error {
 	filesMap, commit, err := beforeAddRemoveFile(ctx, fileList)
 	if err != nil {
 		return fmt.Errorf("RemoveFile: %w", err)

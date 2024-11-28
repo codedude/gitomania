@@ -1,0 +1,3 @@
+- add X, edit X, add X, back to 1st, add X => it uses the first snapshot (same hash)
+  - If rm a staged file = snapshot can be linked to many commits
+-

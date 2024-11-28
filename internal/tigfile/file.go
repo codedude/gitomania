@@ -1,4 +1,4 @@
-package tgfile
+package tigfile
 
 import (
 	"bytes"
@@ -39,7 +39,8 @@ func Create(filepath string, flag int) (*os.File, error) {
 		FILE_PERM)
 }
 
-// ReadFdBytes is the same as ReadFile, but read no more then 'limit' bytes
+// ReadFdBytes is the same as ReadFile, but read no more then 'limit' bytes.
+// Set limit to -1 for unlimited read.
 // cf : https://cs.opensource.google/go/go/+/refs/tags/go1.23.3:src/os/file.go;l=783
 func ReadFdBytes(f *os.File, limit int) ([]byte, error) {
 	var size int
@@ -50,7 +51,7 @@ func ReadFdBytes(f *os.File, limit int) ([]byte, error) {
 		}
 	}
 	size++ // one byte for final read at EOF
-	if size > limit {
+	if limit > 0 && size > limit {
 		return nil, errors.New("Can't read file bigger than " + strconv.Itoa(limit) + " bytes")
 	}
 	if size < 512 {

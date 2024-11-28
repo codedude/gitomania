@@ -1,21 +1,17 @@
-// Package tgcontext contains tig init functions
-package tgcontext
+// Package tigconfig contains tig init functions
+package tigconfig
 
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path"
-	"tig/internal/tgfile"
-	"tig/internal/tgfs"
+	"tig/internal/tigfile"
+	"tig/internal/tigfs"
 )
 
-// Path relative to the current directory
+// TigRootPath path relative to the current directory
 const TigRootPath = ".tig"
-
-// TigConfigFileName Path relative to TigRootPath
-const TigConfigFileName = "config"
 
 var ErrAlreadyInit = errors.New("Tig already initialized")
 var ErrNotInit = errors.New("Tig is not configured for this folder")
@@ -25,7 +21,7 @@ type TigCtx struct {
 	ProjectPath string
 	TigPath     string
 	AuthorName  string
-	FS          *tgfs.TigFS
+	FS          *tigfs.TigFS
 }
 
 // InitTig initialize tig paths, must be called first.
@@ -42,13 +38,13 @@ func (ctx *TigCtx) LoadPaths() error {
 // Init create directories and files needed by tig
 func (ctx *TigCtx) Init() error {
 	var err error
-	if err = os.Mkdir(ctx.TigPath, tgfile.DIR_PERM); err != nil {
+	if err = os.Mkdir(ctx.TigPath, tigfile.DIR_PERM); err != nil {
 		if os.IsExist(err) {
 			return ErrAlreadyInit
 		}
 		return fmt.Errorf("Init: %w", err)
 	}
-	fd, err := tgfile.Create(path.Join(ctx.TigPath, TigConfigFileName), 0)
+	fd, err := tigfile.Create(path.Join(ctx.TigPath, TigConfigFileName), 0)
 	if err != nil {
 		return fmt.Errorf("Init: %w", err)
 	}
@@ -64,7 +60,7 @@ func (ctx *TigCtx) Delete() error {
 // LoadFS initialize tig FS
 func (ctx *TigCtx) LoadFS() error {
 	var err error
-	ctx.FS, err = tgfs.New(ctx.TigPath)
+	ctx.FS, err = tigfs.New(ctx.TigPath)
 	if err != nil {
 		return fmt.Errorf("LoadFS: %w", err)
 	}
@@ -72,20 +68,5 @@ func (ctx *TigCtx) LoadFS() error {
 	if err != nil {
 		return fmt.Errorf("LoadFS: %w", err)
 	}
-	return nil
-}
-
-// LoadConfig load the config file
-// TODO
-func (ctx *TigCtx) LoadConfig() error {
-	ctx.AuthorName = "codedude"
-	fd, err := tgfile.Open(path.Join(ctx.TigPath, TigConfigFileName), os.O_RDONLY)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return ErrNotInit
-		}
-		return fmt.Errorf("LoadConfig: %w", err)
-	}
-	defer fd.Close()
 	return nil
 }

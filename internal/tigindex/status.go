@@ -1,14 +1,14 @@
-package tgstatus
+package tigindex
 
 import (
 	"fmt"
-	"tig/internal/tgcommit"
-	"tig/internal/tgcontext"
-	"tig/internal/tgfile"
+	"tig/internal/tigconfig"
+	"tig/internal/tigfile"
+	"tig/internal/tighistory"
 )
 
-func GetStatus(ctx *tgcontext.TigCtx) error {
-	cwdFileList, err := tgfile.GetDirTree(".")
+func GetStatus(ctx *tigconfig.TigCtx) error {
+	cwdFileList, err := tigfile.GetDirTree(".")
 	if err != nil {
 		return fmt.Errorf("Cannot get file tree: %w", err)
 	}
@@ -16,7 +16,7 @@ func GetStatus(ctx *tgcontext.TigCtx) error {
 	if err != nil {
 		return fmt.Errorf("Cannot get track files: %w", err)
 	}
-	commit, err := tgcommit.GetCurrentCommit(*ctx)
+	commit, err := tighistory.GetCurrentCommit(*ctx)
 	if err != nil {
 		return fmt.Errorf("Cannot get current commit: %w", err)
 	}
@@ -42,7 +42,7 @@ func GetStatus(ctx *tgcontext.TigCtx) error {
 	for _, v := range commit.Changes {
 		commitFiles[v.FileSnapshot.File.Path] = true
 		fmt.Println(fmt.Sprintf(
-			"\t%s:\t%s", tgcommit.ChangeActionToStr(v.Action), v.FileSnapshot.File.Path))
+			"\t%s:\t%s", tighistory.ChangeActionToStr(v.Action), v.FileSnapshot.File.Path))
 	}
 
 	fmt.Println("\nTrack files:")

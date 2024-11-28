@@ -1,11 +1,11 @@
-package tgfs
+package tigfs
 
 import (
 	"bytes"
 	"path"
 	"strconv"
 	"testing"
-	"tig/internal/tgfile"
+	"tig/internal/tigfile"
 )
 
 // generateFakeFs generate a known FS, no files are written
@@ -24,13 +24,13 @@ func generateFakeFs(t *testing.T, fileList []string) (*TigFS, string) {
 		// Generate multiple snapshots
 		for nOfSnaps := i; nOfSnaps < i+1; nOfSnaps++ {
 			tmpFileContent := bytes.Replace(fileContent, []byte("xxx"), []byte(strconv.Itoa(nOfSnaps)), -1)
-			hash := tgfile.HashBytes(tmpFileContent)
+			hash := tigfile.HashBytes(tmpFileContent)
 			indexFile = append(indexFile, hash+";"+hash)
 			fileSnap := &TigFileSnapshot{Hash: hash, Path: hash, File: tigFile, Previous: tigFile.Head}
 			tigFile.Head = fileSnap
 		}
 	}
-	err = tgfile.WriteFileLines(newFs.IndexPath, indexFile)
+	err = tigfile.WriteFileLines(newFs.IndexPath, indexFile)
 	if err != nil {
 		t.Fatalf("Error GenerateFakeFs write index: %s", err)
 	}
@@ -105,7 +105,7 @@ func TestFSAdd(t *testing.T) {
 	}
 	fileToAdd := "hello.go"
 	fullFilePath := path.Join(tmpDirPath, fileToAdd)
-	if err := tgfile.WriteFileString(fullFilePath, "Hello world"); err != nil {
+	if err := tigfile.WriteFileString(fullFilePath, "Hello world"); err != nil {
 		t.Fatalf("Error file WriteString: %s", err)
 	}
 	if _, err = fs_to_test.Add(fullFilePath); err != nil {

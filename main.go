@@ -30,9 +30,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"tig/internal/tgcommit"
-	"tig/internal/tgcontext"
-	"tig/internal/tgstatus"
+	"tig/internal/tigconfig"
+	"tig/internal/tighistory"
+	"tig/internal/tigindex"
 )
 
 func main() {
@@ -45,7 +45,7 @@ func main() {
 func run(args []string) int {
 	var (
 		err    error
-		tigCtx = tgcontext.TigCtx{AuthorName: "codedude"} // TODO: Config will be done later
+		tigCtx = tigconfig.TigCtx{AuthorName: "codedude"} // TODO: Config will be done later
 	)
 
 	if len(args) < 2 {
@@ -63,7 +63,7 @@ func run(args []string) int {
 	if command == "init" {
 		err = tigCtx.Init()
 		if err != nil {
-			if errors.Is(err, tgcontext.ErrAlreadyInit) {
+			if errors.Is(err, tigconfig.ErrAlreadyInit) {
 				fmt.Println(err)
 				return 0
 			}
@@ -75,7 +75,7 @@ func run(args []string) int {
 
 	err = tigCtx.LoadConfig()
 	if err != nil {
-		if errors.Is(err, tgcontext.ErrNotInit) {
+		if errors.Is(err, tigconfig.ErrNotInit) {
 			fmt.Println(err)
 			return 1
 		}
@@ -88,24 +88,24 @@ func run(args []string) int {
 		fmt.Println("Error during tig initialization: ", err)
 		return 1
 	}
-	_, err = tgcommit.LoadCommits(tigCtx)
+	_, err = tighistory.LoadCommits(tigCtx)
 	if err != nil {
 		fmt.Printf("Error during tree initialization: %s\n", err)
 		return 1
 	}
 
 	if command == "status" {
-		err = tgstatus.GetStatus(&tigCtx)
+		err = tigindex.GetStatus(&tigCtx)
 	} else if command == "add" {
-		err = tgstatus.AddFile(tigCtx, args[2:])
+		err = tigindex.AddFile(tigCtx, args[2:])
 	} else if command == "rm" {
-		err = tgstatus.RemoveFile(tigCtx, args[2:])
+		err = tigindex.RemoveFile(tigCtx, args[2:])
 	} else if command == "commit" {
 		if len(args) < 3 {
 			fmt.Println("tig commit require a message argument")
 			return 1
 		}
-		err = tgcommit.Commit(tigCtx, args[2])
+		err = tighistory.Commit(tigCtx, args[2])
 	} else if command == "reset" {
 		// DEV ONLY
 		err = tigCtx.Delete()

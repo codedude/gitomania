@@ -1,4 +1,4 @@
-package tgfs
+package tigfs
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"path"
 	"slices"
 	"strings"
-	"tig/internal/tgfile"
+	"tig/internal/tigfile"
 )
 
 /*
@@ -23,7 +23,7 @@ How to store file snapshot history:
 ab42cd64ef01;ab42cd64ef01
 a98bd8be9ae8;a98bd8be9ae8
 da8db98b4a09;da8db98b4a09
-#internal/commit/tgcommit.go
+#internal/commit/tighistory.go
 a0e9720b207e;a0e9720b207e
 ###FILE END
 
@@ -35,10 +35,11 @@ const tigFSIndexFileName string = "_index" // File (_file so it's first in filet
 const tigFSPath string = "fs"              // Directory
 
 type TigFileSnapshot struct {
-	Hash     string           // Content hash of the file at snapshot
-	Path     string           // Path of the snapshot in Tig (based on hash)
-	File     *TigFile         // Never nil
-	Previous *TigFileSnapshot // Never nil
+	Hash     string   // Content hash of the file at snapshot
+	Path     string   // Path of the snapshot in Tig (based on hash)
+	File     *TigFile // Never nil
+	Previous *TigFileSnapshot
+	Next     *TigFileSnapshot
 }
 
 type TigFile struct {
@@ -65,12 +66,12 @@ func New(rootDir string) (*TigFS, error) {
 		IndexPath: path.Join(cleanFSPath, tigFSIndexFileName),
 		DirPath:   cleanFSPath,
 	}
-	if err := os.Mkdir(fs.DirPath, tgfile.FILE_PERM); err != nil {
+	if err := os.Mkdir(fs.DirPath, tigfile.FILE_PERM); err != nil {
 		if !os.IsExist(err) {
 			return nil, err
 		}
 	}
-	fd, err := tgfile.Create(fs.IndexPath, 0)
+	fd, err := tigfile.Create(fs.IndexPath, 0)
 	if err != nil {
 		if !os.IsExist(err) {
 			return nil, err
@@ -83,7 +84,7 @@ func New(rootDir string) (*TigFS, error) {
 // Load read the index file to popuplate the FS.
 // Load is idempotent.
 func (fs *TigFS) Load() error {
-	lines, err := tgfile.ReadFileLines(fs.IndexPath, tgfile.MAX_FILE_SIZE)
+	lines, err := tigfile.ReadFileLines(fs.IndexPath, tigfile.MAX_FILE_SIZE)
 	if err != nil {
 		return err
 	}
@@ -113,6 +114,9 @@ func (fs *TigFS) Load() error {
 			tigFile.Head = &TigFileSnapshot{
 				Hash: data[0], Path: data[1], File: tigFile, Previous: tigFile.Head,
 			}
+			if tigFile.Head.Previous != nil {
+				tigFile.Head.Previous.Next = tigFile.Head
+			}
 		}
 	}
 	return nil
@@ -123,6 +127,9 @@ func (fs *TigFS) Load() error {
 func (fs *TigFS) save() error {
 	var fileLines []string
 	for _, v := range fs.Files {
+		if v.Head == nil {
+			continue // No snapshot, dont save it
+		}
 		fileLines = append(fileLines, fmt.Sprintf("#%s", v.Path))
 		ptr := v.Head
 		var snapLines []string
@@ -132,7 +139,7 @@ func (fs *TigFS) save() error {
 		slices.Reverse(snapLines)
 		fileLines = append(fileLines, snapLines...)
 	}
-	err := tgfile.WriteFileLines(fs.IndexPath, fileLines)
+	err := tigfile.WriteFileLines(fs.IndexPath, fileLines)
 	if err != nil {
 		return err
 	}
@@ -151,7 +158,7 @@ func (fs *TigFS) HasChanged(filepath string) (bool, error) {
 	if !ok {
 		return true, nil
 	}
-	newHash, err := tgfile.HashFile(filepath)
+	newHash, err := tigfile.HashFile(filepath)
 	if err != nil {
 		return false, err
 	}
@@ -177,40 +184,58 @@ func (fs *TigFS) Add(filepath string) (*TigFile, error) {
 }
 
 // Add add a snapshot to a [TigFile]
-func (tgFile *TigFile) Add() (*TigFileSnapshot, error) {
-	hash, err := tgfile.HashFile(tgFile.Path)
+func (file *TigFile) Add() (*TigFileSnapshot, error) {
+	hash, err := tigfile.HashFile(file.Path)
 	if err != nil {
 		return nil, fmt.Errorf("Add getting hash: %w", err)
 	}
 	newFileSnap := &TigFileSnapshot{
 		Hash:     hash,
 		Path:     hash, // Path = hash for now
-		File:     tgFile,
-		Previous: tgFile.Head,
+		File:     file,
+		Previous: file.Head,
 	}
-	err = tgfile.CopyFile(tgFile.Path, path.Join(tgFile.FS.DirPath, hash))
+	err = tigfile.CopyFile(file.Path, path.Join(file.FS.DirPath, hash))
 	if err != nil {
 		return nil, fmt.Errorf("Add create copy: %w", err)
 	}
 	// Last so GC can clean if any error
-	tgFile.Head = newFileSnap
-
-	return newFileSnap, tgFile.FS.save()
+	file.Head = newFileSnap
+	if newFileSnap.Previous != nil {
+		newFileSnap.Previous.Next = newFileSnap
+	}
+	return newFileSnap, file.FS.save()
 }
 
 // Delete delete a snapshot of a [File]
-func (tgFile *TigFile) Delete(hash string) error {
-	snapshot := tgFile.Search(hash)
+func (file *TigFile) Delete(hash string) error {
+	snapshot := file.Search(hash)
 	if snapshot == nil {
 		return errors.New("The snapshot does not exist for deletion")
 	}
-	// TODO
-	return nil
+	if snapshot.Previous != nil {
+		snapshot.Previous.Next = snapshot.Next
+	} else {
+		if snapshot.Next != nil {
+			snapshot.Next.Previous = nil
+		}
+	}
+	if snapshot.Next == nil {
+		file.Head = snapshot.Previous
+	}
+	snapshot.Next = nil
+	snapshot.Previous = nil
+	err := os.Remove(path.Join(file.FS.DirPath, snapshot.Path))
+	if err != nil {
+		return fmt.Errorf("Cannot delete snapshot: %w", err)
+	}
+	// Dont delete file object if no snapshot remain, we delete in on save
+	return file.FS.save()
 }
 
 // Search search for a specifi snapshot
-func (tgFile *TigFile) Search(hash string) *TigFileSnapshot {
-	for ptr := tgFile.Head; ptr != nil; ptr = ptr.Previous {
+func (file *TigFile) Search(hash string) *TigFileSnapshot {
+	for ptr := file.Head; ptr != nil; ptr = ptr.Previous {
 		if ptr.Hash == hash {
 			return ptr
 		}
